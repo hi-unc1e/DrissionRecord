@@ -6,8 +6,8 @@ from openpyxl.utils import column_index_from_string
 from openpyxl.workbook import Workbook
 
 from .style import CellStyle
-from .tools import (process_content, ok_list, make_valid_name, data_to_list_or_dict_simplify, data_to_list_or_dict,
-                    Header, ZeroHeader)
+from .tools import (make_valid_name, data_to_list_or_dict_simplify, data_to_list_or_dict,
+                    Header, ZeroHeader, process_content_xlsx, ok_list_str)
 
 
 class OriginalSetter(object):
@@ -327,7 +327,7 @@ def set_csv_header(recorder, header, row):
             if con_len < row - 1:
                 for _ in range(row - con_len - 1):
                     csv_write.writerow([])
-            csv_write.writerow(ok_list(header))
+            csv_write.writerow(ok_list_str(header))
 
         with open(recorder.path, 'a+', newline='', encoding=recorder._encoding) as f:
             f.write("".join(content2))
@@ -338,7 +338,7 @@ def set_csv_header(recorder, header, row):
             csv_write = writer(f, delimiter=recorder._delimiter, quotechar=recorder._quote_char)
             for _ in range(row - 1):
                 csv_write.writerow([])
-            csv_write.writerow(ok_list(header))
+            csv_write.writerow(ok_list_str(header))
 
     recorder._file_exists = True
 
@@ -368,12 +368,12 @@ def set_xlsx_header(recorder, header, table, row):
             ws.title = table
 
     for c, i in header.items():
-        ws.cell(row, c).value = process_content(i, True)
+        ws.cell(row, c, value=process_content_xlsx(i))
     len_row = len(ws[row])
     len_header = len(header)
     if len_row > len_header:
         for c in range(len_header + 1, len_row + 1):
-            ws.cell(row, c).value = None
+            ws.cell(row, c, value=None)
 
     wb.save(recorder.path)
     wb.close()

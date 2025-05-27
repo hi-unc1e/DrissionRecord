@@ -5,7 +5,7 @@ from time import sleep
 
 from .base import BaseRecorder
 from .setter import DBSetter
-from .tools import ok_list
+from .tools import ok_list_db
 
 
 class DBRecorder(BaseRecorder):
@@ -121,7 +121,7 @@ class DBRecorder(BaseRecorder):
 
             question_masks = ','.join('?' * len(keys))
             keys_txt = '`' + '`,`'.join(keys) + '`'
-            values = [ok_list(i.values()) for i in data_list]
+            values = [ok_list_db(i.values()) for i in data_list]
             sql = f'INSERT INTO `{table}` ({keys_txt}) values ({question_masks})'
 
         else:
@@ -163,7 +163,7 @@ class DBRecorder(BaseRecorder):
                     tmp_keys = len(d)
                     long = len(tables[table])
                     if long > tmp_keys:
-                        d = ok_list(d)
+                        d = ok_list_db(d)
                         d.extend([None] * (long - tmp_keys))
                     elif long < tmp_keys:
                         self._close_connection()

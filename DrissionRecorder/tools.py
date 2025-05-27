@@ -6,7 +6,6 @@ from re import search, sub, match
 from openpyxl.cell import Cell, ReadOnlyCell
 from openpyxl.reader.excel import load_workbook
 from openpyxl.utils import column_index_from_string
-from openpyxl.utils.cell import _STRING_COL_CACHE, _COL_STRING_CACHE
 from openpyxl.workbook import Workbook
 
 from .style import CellStyle
@@ -28,7 +27,42 @@ def remove_end_Nones(in_list):
     return h[::-1]
 
 
-class Header(object):
+def _get_column_letter(col_idx):
+    letters = []
+    while col_idx > 0:
+        col_idx, remainder = divmod(col_idx, 26)
+        if remainder == 0:
+            remainder = 26
+            col_idx -= 1
+        letters.append(chr(remainder + 64))
+    return ''.join(reversed(letters))
+
+
+class BaseHeader(object):
+    _NUM_KEY = {}
+    _KEY_NUM = {}
+
+    def __new__(cls, header=None):
+        if not cls._NUM_KEY:
+            for i in range(1, 18279):
+                col = _get_column_letter(i)
+                cls._NUM_KEY[i] = col
+                cls._KEY_NUM[col] = i
+        return object.__new__(cls)
+
+    @property
+    def _str_num(self):
+        return Header._KEY_NUM
+
+    @property
+    def _num_str(self):
+        return Header._NUM_KEY
+
+    def __iter__(self):
+        return iter(self.key_num)
+
+
+class Header(BaseHeader):
     def __init__(self, header=None):
         if isinstance(header, (list, tuple)):
             self._NUM_KEY = {c: str(i) if i not in ('', None) else c
@@ -114,7 +148,7 @@ class Header(object):
         if isinstance(col, int) and col > 0:
             return col
         elif isinstance(col, str):
-            return self.key_num.get(col, None) if is_header else _COL_STRING_CACHE.get(col.upper(), None)
+            return self.key_num.get(col, None) if is_header else Header._KEY_NUM.get(col.upper(), None)
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
@@ -137,28 +171,16 @@ class Header(object):
 
 
 class ZeroHeader(Header):
-    _NUM_KEY = _STRING_COL_CACHE
-    _KEY_NUM = _COL_STRING_CACHE
     _OBJ = None
 
     def __new__(cls):
-        if cls._OBJ:
-            return cls._OBJ
-        cls._OBJ = object.__new__(cls)
+        super().__new__(cls)
+        if cls._OBJ is None:
+            cls._OBJ = object.__new__(cls)
         return cls._OBJ
 
     def __init__(self):
-        if ZeroHeader._OBJ:
-            return
-        super().__init__()
-
-    @property
-    def _str_num(self):
-        return ZeroHeader._KEY_NUM
-
-    @property
-    def _num_str(self):
-        return ZeroHeader._NUM_KEY
+        return
 
     def get_num(self, col, is_header=False):
         """获取某列序号
@@ -181,8 +203,12 @@ class ZeroHeader(Header):
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
-            data = {self.get_num(k, is_header=True): v for k, v in data.items()}
-            data = [data.get(c, None) for c in range(1, max(data) + 1)]
+            val = {}
+            for k, v in data.items():
+                num = self.get_num(k, is_header=True)
+                if num:
+                    val[num] = v
+            data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
         return data, False
 
     def __getitem__(self, item):
@@ -213,7 +239,7 @@ class RowData(dict):
         :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
         """
         if isinstance(key, str):
-            key = _COL_STRING_CACHE.get(key.upper(), key) if is_col else self.header[key]
+            key = BaseHeader._KEY_NUM.get(key.upper(), key) if is_col else self.header[key]
         if isinstance(key, int) and key > 0:
             val = self[key]
         else:
@@ -405,37 +431,80 @@ def parse_coord(coord=None, data_col=None):
     return return_coord
 
 
-def process_content(content, excel=False):
+def process_content_xlsx(content):
     """处理单个单元格要写入的数据
     :param content: 未处理的数据内容
-    :param excel: 是否为excel文件
     :return: 处理后的数据
     """
-    if isinstance(content, (int, str, float, type(None))):
+    if isinstance(content, (str, int, float, type(None))):
         data = content
     elif isinstance(content, (Cell, ReadOnlyCell)):
         data = content.value
     else:
         data = str(content)
 
-    if excel and isinstance(data, str):
+    if isinstance(data, str):
         data = sub(r'[\000-\010]|[\013-\014]|[\016-\037]', '', data)
 
     return data
 
 
-def ok_list(data_list, excel=False, as_str=False):
+def process_content_json(content):
+    """处理单个单元格要写入的数据
+    :param content: 未处理的数据内容
+    :return: 处理后的数据
+    """
+    if isinstance(content, (str, int, float, type(None))):
+        return content
+    elif isinstance(content, (Cell, ReadOnlyCell)):
+        return content.value
+    else:
+        return str(content)
+
+
+def process_content_str(content):
+    """处理单个单元格要写入的数据，以str格式输出
+    :param content: 未处理的数据内容
+    :return: 处理后的数据
+    """
+    if isinstance(content, str):
+        return content
+    elif content is None:
+        return ''
+    elif isinstance(content, (Cell, ReadOnlyCell)):
+        return str(content.value)
+    else:
+        return str(content)
+
+
+def ok_list_xlsx(data_list):
     """处理列表中数据使其符合保存规范
     :param data_list: 数据列表
-    :param excel: 是否保存在excel
-    :param as_str: 内容是否转为字符串
     :return: 处理后的列表
     """
     if isinstance(data_list, (dict, Header)):
         data_list = data_list.values()
-    if as_str:
-        data_list = [str(i) for i in data_list]
-    return [process_content(i, excel) for i in data_list]
+    return [process_content_xlsx(i) for i in data_list]
+
+
+def ok_list_str(data_list):
+    """处理列表中数据使其符合保存规范，所有数据都是str格式
+    :param data_list: 数据列表
+    :return: 处理后的列表
+    """
+    if isinstance(data_list, (dict, Header)):
+        data_list = data_list.values()
+    return [process_content_str(i) for i in data_list]
+
+
+def ok_list_db(data_list):
+    """处理列表中数据使其符合保存规范
+    :param data_list: 数据列表
+    :return: 处理后的列表
+    """
+    if isinstance(data_list, (dict, Header)):
+        data_list = data_list.values()
+    return [process_content_json(i) for i in data_list]
 
 
 def get_usable_coord_int(coord, max_row, max_col):
@@ -583,7 +652,7 @@ def get_and_set_csv_header(recorder, is_filler=False):
                     first_data = first_data.keys()
                     new = True
                     add_header = True
-                header = ok_list(first_data)
+                header = ok_list_str(first_data)
 
     else:
         new = True
@@ -601,7 +670,7 @@ def get_and_set_csv_header(recorder, is_filler=False):
             new = True
             add_header = True
 
-        header = ok_list(first_data) if first_data else False
+        header = ok_list_str(first_data) if first_data else False
 
     if new:
         with open(recorder.path, 'w', newline='', encoding=recorder.encoding) as f:

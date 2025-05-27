@@ -8,9 +8,9 @@ from openpyxl.reader.excel import load_workbook
 from .base import BaseRecorder
 from .setter import RecorderSetter, set_csv_header
 from .style.cell_style import CellStyleCopier, CellStyle, NoneStyle
-from .tools import (ok_list, process_content, get_wb, fix_openpyxl_bug, get_key_cols, Header,
-                    get_and_set_csv_header, get_ws, create_csv, parse_coord,
-                    data_to_list_or_dict, get_usable_coord, get_usable_coord_int, do_nothing, Header, )
+from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str, get_wb,
+                    fix_openpyxl_bug, get_key_cols, Header, get_and_set_csv_header, get_ws, create_csv, parse_coord,
+                    data_to_list_or_dict, get_usable_coord, get_usable_coord_int, do_nothing, )
 
 
 class Recorder(BaseRecorder):
@@ -393,19 +393,18 @@ class Recorder(BaseRecorder):
             if first_wrote:
                 data = data[1:]
 
-            if self._fit_header and self._header.get(ws.title, None) is not None:
+            if self._fit_header:
                 rewrite_header = False
                 for i in data:
                     i, rewrite_header = self._header[ws.title].make_insert_data(i, self, rewrite_header)
-                    ws.append(ok_list(i, True))
-
+                    ws.append(ok_list_xlsx(i))
                 if rewrite_header:
                     for c in range(1, ws.max_column + 1):
-                        ws.cell(self._header_row, c).value = self._header[ws.title][c]
+                        ws.cell(self._header_row, c, value=self._header[ws.title][c])
 
             else:
                 for i in data:
-                    ws.append(ok_list(i, True))
+                    ws.append(ok_list_xlsx(i))
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
@@ -503,7 +502,7 @@ class Recorder(BaseRecorder):
                 method = _to_csv3
 
             if method(self, csv_write, rewrite_header):
-                set_csv_header(self, self._header, True, self._header_row)
+                set_csv_header(self, self._header[None], self._header_row)
 
     def _to_csv_slow(self):
         """填写数据到csv文件"""
@@ -538,16 +537,16 @@ class Recorder(BaseRecorder):
                             for k, h in enumerate(self._header):
                                 if h in data:
                                     lines[row_num][k] = data[h]
-                            lines[row_num] = ok_list(lines[row_num])
+                            lines[row_num] = ok_list_str(lines[row_num])
                             continue
 
                         else:
-                            data = ok_list(data.values())
+                            data = ok_list_str(data.values())
 
                     # 若列数不够，填充空列
                     lines[row_num].extend([''] * (col - len(lines[row_num]) + len(data) - 1))
                     for k, j in enumerate(data):  # 填充数据
-                        lines[row_num][col + k - 1] = process_content(j)
+                        lines[row_num][col + k - 1] = process_content_str(j)
 
             writer = csv_writer(open(self.path, 'w', encoding=self.encoding, newline=''),
                                 delimiter=self.delimiter, quotechar=self.quote_char)
@@ -556,7 +555,7 @@ class Recorder(BaseRecorder):
     def _to_txt(self):
         """记录数据到txt文件"""
         with open(self.path, 'a+', encoding=self.encoding) as f:
-            all_data = [' '.join(ok_list(i, as_str=True)) for i in self._data]
+            all_data = [' '.join(ok_list_str(i)) for i in self._data]
             f.write('\n'.join(all_data) + '\n')
 
     def _to_jsonl(self):
@@ -578,10 +577,10 @@ class Recorder(BaseRecorder):
         for i in self._data:
             if isinstance(i, dict):
                 for d in i:
-                    i[d] = process_content(i[d])
+                    i[d] = process_content_json(i[d])
                 json_data.append(i)
             else:
-                json_data.append([process_content(d) for d in i])
+                json_data.append([process_content_json(d) for d in i])
 
         self._file_exists = True
         with open(self.path, 'w', encoding=self.encoding) as f:
@@ -644,11 +643,11 @@ def new_sheet_fast(recorder, ws, data, first_wrote):
         first_wrote = True
         if data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], (list, tuple)):
             for r, d in enumerate(data[0], 1):
-                for c, v in enumerate(ok_list(d, excel=True), 1):
+                for c, v in enumerate(ok_list_xlsx(d), 1):
                     ws.cell(row=r, column=c, value=v)
             need_set_style = tuple(range(1, len(data[0]) + 1))
         else:  # 一维数据
-            for c, v in enumerate(ok_list(data[0], excel=True), 1):
+            for c, v in enumerate(ok_list_xlsx(data[0]), 1):
                 ws.cell(row=1, column=c, value=v)
         recorder._header[ws.title] = Header()
 
@@ -689,10 +688,10 @@ def new_sheet_slow(recorder, ws, data, style, first_data_wrote, first_style_wrot
             if isinstance(coord, tuple):
                 if data and isinstance(data, (list, tuple)) and isinstance(data[0], (list, tuple)):
                     for r, d in enumerate(data, 1):
-                        for c, v in enumerate(ok_list(d, excel=True), 1):
+                        for c, v in enumerate(ok_list_xlsx(d), 1):
                             ws.cell(row=r, column=c, value=v)
                 else:  # 一维数据
-                    for c, v in enumerate(ok_list(data, excel=True), 1):
+                    for c, v in enumerate(ok_list_xlsx(data), 1):
                         ws.cell(row=1, column=c, value=v)
 
             elif coord == 'set_link':
@@ -757,12 +756,12 @@ def get_csv_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sig
                         res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
                     else:
                         line_len = len(line)
-                        l = max(header_len, line_len)
+                        x = max(header_len, line_len)
                         res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
-                                                              for col in range(1, l + 1)}))
+                                                              for col in range(1, x + 1)}))
                 else:  # 只获取对应的列
-                    l = len(line) + 1
-                    res.append(header.make_row_data(ind, {col: line[col - 1] if col < l else '' for col in key_cols}))
+                    x = len(line) + 1
+                    res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
 
         else:  # 获取符合条件的行
             sign_col -= 1
@@ -848,12 +847,12 @@ def handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_
                     res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
                 else:
                     line_len = len(line)
-                    l = max(header_len, line_len)
+                    x = max(header_len, line_len)
                     res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
-                                                          for col in range(1, l + 1)}))
+                                                          for col in range(1, x + 1)}))
             else:  # 只获取对应的列
-                l = len(line) + 1
-                res.append(header.make_row_data(ind, {col: line[col - 1] if col < l else '' for col in key_cols}))
+                x = len(line) + 1
+                res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
             got += 1
 
 
@@ -867,12 +866,12 @@ def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, k
                     res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
                 else:
                     line_len = len(line)
-                    l = max(header_len, line_len)
+                    x = max(header_len, line_len)
                     res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
-                                                          for col in range(1, l + 1)}))
+                                                          for col in range(1, x + 1)}))
             else:  # 只获取对应的列
-                l = len(line) + 1
-                res.append(header.make_row_data(ind, {col: line[col - 1] if col < l else '' for col in key_cols}))
+                x = len(line) + 1
+                res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
 
 
 def data2ws_no_header_no_style(ws, header, row, col, data, not_new, max_row):
@@ -880,7 +879,7 @@ def data2ws_no_header_no_style(ws, header, row, col, data, not_new, max_row):
         if isinstance(i, dict):
             i = i.values()
         for key, j in enumerate(i):
-            ws.cell(r, col + key).value = process_content(j, True)
+            ws.cell(r, col + key, value=process_content_xlsx(j))
 
 
 def data2ws_no_header_has_style(ws, header, row, col, data, not_new, max_row):
@@ -888,7 +887,7 @@ def data2ws_no_header_has_style(ws, header, row, col, data, not_new, max_row):
         if isinstance(i, dict):
             i = i.values()
         for key, j in enumerate(i):
-            ws.cell(r, col + key).value = process_content(j, True)
+            ws.cell(r, col + key, value=process_content_xlsx(j))
 
     if row > 0 and max_row >= row - 1:
         copy_part_row_style(ws, row, data, col) if not_new else copy_full_row_style(ws, row, data)
@@ -899,11 +898,11 @@ def data2ws_has_header_no_style(ws, header, row, col, data, not_new, max_row):
         if isinstance(curr_data, dict):
             for h, val in curr_data.items():
                 if h in header:
-                    ws.cell(r, header[h]).value = process_content(val, True)
+                    ws.cell(r, header[h], value=process_content_xlsx(val))
 
         else:
             for key, j in enumerate(curr_data):
-                ws.cell(r, col + key).value = process_content(j, True)
+                ws.cell(r, col + key, value=process_content_xlsx(j))
 
 
 def data2ws_has_header_has_style(ws, header, row, col, data, not_new, max_row):
@@ -915,12 +914,12 @@ def data2ws_has_header_has_style(ws, header, row, col, data, not_new, max_row):
                 for h, val in curr_data.items():
                     if h in header:
                         c = header[h]
-                        ws.cell(r, c).value = process_content(val, True)
+                        ws.cell(r, c, value=process_content_xlsx(val))
                         style.append(c)
                 styles.append(style)
             else:
                 for key, j in enumerate(curr_data):
-                    ws.cell(r, col + key).value = process_content(j, True)
+                    ws.cell(r, col + key, value=process_content_xlsx(j))
                 styles.append(range(col, len(curr_data) + col))
 
         if row > 0 and max_row >= row - 1:
@@ -931,10 +930,10 @@ def data2ws_has_header_has_style(ws, header, row, col, data, not_new, max_row):
             if isinstance(curr_data, dict):
                 for h, val in curr_data.items():
                     if h in header:
-                        ws.cell(r, header[h]).value = process_content(val, True)
+                        ws.cell(r, header[h], value=process_content_xlsx(val))
             else:
                 for key, j in enumerate(curr_data):
-                    ws.cell(r, col + key).value = process_content(j, True)
+                    ws.cell(r, col + key, value=process_content_xlsx(j))
 
         if row > 0 and max_row >= row - 1:
             copy_full_row_style(ws, row, data)
@@ -946,9 +945,9 @@ def set_link_to_ws(ws, data, empty, recorder):
     row, col = get_usable_coord(coord, max_row, ws)
     cell = ws.cell(row, col)
     has_link = True if cell.hyperlink else False
-    cell.hyperlink = None if data[1] is None else process_content(data[1], True)
+    cell.hyperlink = None if data[1] is None else process_content_str(data[1])
     if data[2] is not None:
-        cell.value = process_content(data[2], True)
+        cell.value = process_content_xlsx(data[2])
     if data[1]:
         if recorder._link_style:
             recorder._link_style.to_cell(cell, replace=False)
@@ -1058,7 +1057,7 @@ def fit_header_handle(data, recorder, ws, rewrite_header):
     if isinstance(data, dict):
         if recorder._auto_new_header and set(recorder._header[ws.title]) != set(data.keys()):
             header = list(recorder._header) + [t for t in data.keys() if t not in recorder._header[ws.title]]
-            recorder._header = {h: c for c, h in enumerate(header, 1)}
+            recorder._header = {c: h for c, h in enumerate(header, 1)}
             rewrite_header = True
         data = [data.get(h, None) for h in recorder._header[ws.title]]
     return data, rewrite_header
@@ -1077,7 +1076,7 @@ def _to_csv1(recorder, writer, rewrite_header):
                 recorder._header = {h: c for c, h in enumerate(header, 1)}
                 rewrite_header = True
             i = [i.get(h, '') for h in recorder._header]
-        writer.writerow(ok_list(i))
+        writer.writerow(ok_list_str(i))
     return rewrite_header
 
 
@@ -1094,13 +1093,13 @@ def _to_csv2(recorder, writer, rewrite_header):
                 t.append(str(v))
                 wei = k
             i = t
-        writer.writerow(ok_list(i))
+        writer.writerow(ok_list_str(i))
     return rewrite_header
 
 
 def _to_csv3(recorder, writer, rewrite_header):
     for i in recorder._data:
-        writer.writerow(ok_list(i))
+        writer.writerow(ok_list_str(i))
     return rewrite_header
 
 
