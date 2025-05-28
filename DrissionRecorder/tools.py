@@ -99,7 +99,7 @@ class Header(BaseHeader):
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_data(self, data, recorder, rewrite):
+    def make_insert_list(self, data, recorder, rewrite):
         """生产写入文件list格式的行数据
         :param data: 待处理行数据
         :param recorder: Recorder对象
@@ -124,12 +124,20 @@ class Header(BaseHeader):
                         break
 
             if has_int:
-                data = {self.get_num(k, is_header=True): v for k, v in data.items()}
+                data = {self.get_num(k): v for k, v in data.items()}
                 data = [data.get(c, None) for c in range(1, max(max(self.num_key), max(data)) + 1)]
             else:
                 data = [data.get(c, None) for c in self.key_num]
 
         return data, rewrite
+
+    def make_num_dict(self, data):
+        val = {}
+        for k, v in data.items():
+            num = self.get_num(k)
+            if num:
+                val[num] = v
+        return val
 
     def get_key(self, num):
         """返回指定列序号对应的header key，如为None返回列序号
@@ -139,7 +147,7 @@ class Header(BaseHeader):
         key = self[num]
         return num if key is None else key
 
-    def get_num(self, col, is_header=False):
+    def get_num(self, col, is_header=True):
         """获取某列序号
         :param col: 列号、列名、表头值
         :param is_header: 当col为str时，是header的key还是列名
@@ -182,7 +190,7 @@ class ZeroHeader(Header):
     def __init__(self):
         return
 
-    def get_num(self, col, is_header=False):
+    def get_num(self, col, is_header=True):
         """获取某列序号
         :param col: 列号、列名、表头值
         :param is_header: 不起实际作用
@@ -195,7 +203,7 @@ class ZeroHeader(Header):
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
-    def make_insert_data(self, data, recorder, rewrite):
+    def make_insert_list(self, data, recorder, rewrite):
         """生产写入文件list格式的行数据
         :param data: 待处理行数据
         :param recorder: Recorder对象
@@ -203,11 +211,7 @@ class ZeroHeader(Header):
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
-            val = {}
-            for k, v in data.items():
-                num = self.get_num(k, is_header=True)
-                if num:
-                    val[num] = v
+            val = self.make_num_dict(data)
             data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
         return data, False
 

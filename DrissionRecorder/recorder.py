@@ -251,9 +251,7 @@ class Recorder(BaseRecorder):
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
         :return: None
         """
-        if isinstance(img_path, Path):
-            img_path = str(img_path)
-        self.add_data((coord, img_path, width, height), 'set_img', table)
+        self.add_data((coord, str(img_path), width, height), 'set_img', table)
 
     def _set_style(self, coord, style, replace=True, table=None):
         """为单元格设置样式，可批量设置范围内的单元格
@@ -360,7 +358,6 @@ class Recorder(BaseRecorder):
         """记录数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
-
         for table, data in self._data.items():
             _row_styles = None
             _row_height = None
@@ -375,6 +372,7 @@ class Recorder(BaseRecorder):
             elif self._header.get(ws.title, None) is None:
                 self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
 
+            header = self._header[ws.title]
             begin_row = None  # 开始写入数据的行
             if self._follow_styles:
                 begin_row = ws.max_row
@@ -395,13 +393,12 @@ class Recorder(BaseRecorder):
             rewrite_header = False
             for i in data:
                 if isinstance(i, dict):
-                    i, rewrite_header = self._header[ws.title].make_insert_data(i, self, rewrite_header)
-
-                ws.append(ok_list_xlsx(i))
+                    i, rewrite_header = header.make_insert_list(i, self, rewrite_header)
+                ws.append([process_content_xlsx(x) for x in i])
 
             if rewrite_header:
                 for c in range(1, ws.max_column + 1):
-                    ws.cell(self._header_row, c, value=self._header[ws.title][c])
+                    ws.cell(self._header_row, c, value=header[c])
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
@@ -409,13 +406,8 @@ class Recorder(BaseRecorder):
 
             elif self._styles or self._row_height:
                 if isinstance(self._styles, dict):
-                    if self._header.get(ws.title, None):
-                        i = {self._header[ws.title][h]: s for h, s in self._styles.items() if
-                             h in self._header.get(ws.title, tuple())}
-                        styles = [i.get(h, None) for h in range(1, max(i) + 1)] if i else []
-                    else:
-                        self._styles = list(self._styles.values())
-                        styles = self._styles
+                    styles = header.make_num_dict(self._styles)
+                    styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
 
                 elif isinstance(self._styles, CellStyle):
                     styles = [self._styles] * ws.max_column
@@ -432,7 +424,6 @@ class Recorder(BaseRecorder):
         """填写数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
-
         for table in {}.fromkeys(list(self._data.keys()) + list(self._style_data.keys())):
             ws, new_sheet = get_ws(wb, table, tables, new_file)
             first_data_wrote = False
@@ -441,24 +432,19 @@ class Recorder(BaseRecorder):
                 self._header[ws.title] = self._header[None]
 
             if new_sheet:
-                first_data_wrote, first_style_wrote = new_sheet_slow(self, ws, self._data.get(table, None),
-                                                                     self._style_data.get(table, None),
+                first_data_wrote, first_style_wrote = new_sheet_slow(self, ws, self._data.get(table, []),
+                                                                     self._style_data.get(table, []),
                                                                      first_data_wrote, first_style_wrote)
-            elif self._header_row > 0 and ws.title not in self._header:
+            elif self._header.get(ws.title, None) is None:
                 self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
 
-            header = self._header.get(ws.title, tuple())
-
+            header = self._header[ws.title]
             if new_file:
                 wb, ws = fix_openpyxl_bug(self, wb, ws, ws.title)
                 new_file = False
 
             if self._data.get(table, None):
-                if self._fit_header:
-                    method = data2ws_has_header_has_style if self._follow_styles else data2ws_has_header_no_style
-                else:
-                    method = data2ws_no_header_has_style if self._follow_styles else data2ws_no_header_no_style
-
+                method = data2ws_has_style if self._follow_styles else data2ws_no_style
                 data = self._data[table][1:] if first_data_wrote else self._data[table]
                 for cur_data in data:
                     if cur_data[0] == 'set_link':
@@ -468,7 +454,7 @@ class Recorder(BaseRecorder):
                     else:
                         max_row = ws.max_row
                         row, col = get_usable_coord(cur_data[0], max_row, ws)
-                        not_new = cur_data[0][0]
+                        not_new = cur_data[0][0]  # 是否添加到新行
                         cur_data = cur_data[1] if isinstance(cur_data[1][0], (list, tuple, dict)) else (cur_data[1],)
                         method(ws, header, row, col, cur_data, not_new, max_row)
 
@@ -871,67 +857,35 @@ def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, k
                 res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
 
 
-def data2ws_no_header_no_style(ws, header, row, col, data, not_new, max_row):
-    for r, i in enumerate(data, row):
-        if isinstance(i, dict):
-            i = i.values()
-        for key, j in enumerate(i):
-            ws.cell(r, col + key, value=process_content_xlsx(j))
-
-
-def data2ws_no_header_has_style(ws, header, row, col, data, not_new, max_row):
-    for r, i in enumerate(data, row):
-        if isinstance(i, dict):
-            i = i.values()
-        for key, j in enumerate(i):
-            ws.cell(r, col + key, value=process_content_xlsx(j))
-
-    if row > 0 and max_row >= row - 1:
-        copy_part_row_style(ws, row, data, col) if not_new else copy_full_row_style(ws, row, data)
-
-
-def data2ws_has_header_no_style(ws, header, row, col, data, not_new, max_row):
+def data2ws_no_style(ws, header, row, col, data, not_new, max_row):
     for r, curr_data in enumerate(data, row):
         if isinstance(curr_data, dict):
-            for h, val in curr_data.items():
-                if h in header:
-                    ws.cell(r, header[h], value=process_content_xlsx(val))
-
+            for c, val in header.make_num_dict(curr_data).items():
+                ws.cell(r, c, value=process_content_xlsx(val))
         else:
             for key, j in enumerate(curr_data):
                 ws.cell(r, col + key, value=process_content_xlsx(j))
 
 
-def data2ws_has_header_has_style(ws, header, row, col, data, not_new, max_row):
+def data2ws_has_style(ws, header, row, col, data, not_new, max_row):
     if not_new:  # 非新行
         styles = []
         for r, curr_data in enumerate(data, row):
             if isinstance(curr_data, dict):
                 style = []
-                for h, val in curr_data.items():
-                    if h in header:
-                        c = header[h]
-                        ws.cell(r, c, value=process_content_xlsx(val))
-                        style.append(c)
+                for c, val in header.make_num_dict(curr_data).items():
+                    ws.cell(r, c, value=process_content_xlsx(val))
+                    style.append(c)
                 styles.append(style)
             else:
                 for key, j in enumerate(curr_data):
                     ws.cell(r, col + key, value=process_content_xlsx(j))
                 styles.append(range(col, len(curr_data) + col))
-
         if row > 0 and max_row >= row - 1:
             copy_some_row_style(ws, row, styles)
 
-    else:  # 新行
-        for r, curr_data in enumerate(data, row):
-            if isinstance(curr_data, dict):
-                for h, val in curr_data.items():
-                    if h in header:
-                        ws.cell(r, header[h], value=process_content_xlsx(val))
-            else:
-                for key, j in enumerate(curr_data):
-                    ws.cell(r, col + key, value=process_content_xlsx(j))
-
+    else:  # 新行，复制整行样式
+        data2ws_no_style(ws, header, row, col, data, not_new, max_row)
         if row > 0 and max_row >= row - 1:
             copy_full_row_style(ws, row, data)
 
@@ -969,8 +923,7 @@ def set_img_to_ws(ws, data, empty, recorder):
     elif height:
         img.width = int(img.width * (height / img.height))
         img.height = height
-    col = get_column_letter(col)
-    ws.add_image(img, f'{col}{row}')
+    ws.add_image(img, (row, Header._NUM_KEY[col]))
 
 
 def set_style_to_ws(ws, data, empty, recorder, header):
@@ -984,12 +937,10 @@ def set_style_to_ws(ws, data, empty, recorder, header):
             none_style = NoneStyle()
             coord = parse_coord(coord, recorder.data_col)
             row, col = get_usable_coord(coord, max_row, ws)
-            for h, s in data[1][1].items():
-                if h in header:
-                    if s:
-                        s.to_cell(ws.cell(row, header[h]), replace=mode)
-                    else:
-                        none_style.to_cell(ws.cell(row, header[h]), replace=mode)
+            for h, s in header.make_num_dict(data[1][1]).items():
+                if not s:
+                    s = none_style
+                s.to_cell(ws.cell(row, header[h]), replace=mode)
             return
 
         style = NoneStyle() if data[1][1] is None else data[1][1]
@@ -1014,10 +965,10 @@ def set_style_to_ws(ws, data, empty, recorder, header):
     elif data[0] == 'set_width':
         col, width = data[1]
         if isinstance(col, int):
-            col = get_column_letter(col)
+            col = Header._NUM_KEY[col]
         for c in col.split(':'):
             if c.isdigit():
-                c = get_column_letter(int(c))
+                c = Header._NUM_KEY[int(c)]
             ws.column_dimensions[c].width = width
 
     elif data[0] == 'set_height':
@@ -1047,22 +998,6 @@ def _set_line_style(height, style, ws, row, max_col):
     if style:
         for i in range(1, max_col + 1):
             style.to_cell(ws.cell(row=row, column=i))
-
-
-def fit_header_handle(data, recorder, ws, rewrite_header):
-    """处理需要匹配表头时数据"""
-    if isinstance(data, dict):
-        if recorder._auto_new_header and set(recorder._header[ws.title]) != set(data.keys()):
-            header = list(recorder._header) + [t for t in data.keys() if t not in recorder._header[ws.title]]
-            recorder._header = {c: h for c, h in enumerate(header, 1)}
-            rewrite_header = True
-        data = [data.get(h, None) for h in recorder._header[ws.title]]
-    return data, rewrite_header
-
-
-def _style_handle(recorder, data):
-    """处理需要匹配样式时数据"""
-    return [recorder._style] * len(data) if isinstance(recorder._style, CellStyle) else recorder._style
 
 
 def _to_csv1(recorder, writer, rewrite_header):
