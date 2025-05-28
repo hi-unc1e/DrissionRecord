@@ -41,7 +41,6 @@ class Recorder(BaseRecorder):
         self._follow_styles = False
         self._row_height = None
         self._styles = None
-        self._fit_header = True
         self._header_row = 1
         self._auto_new_header = False
         self._fast = True
@@ -393,18 +392,16 @@ class Recorder(BaseRecorder):
             if first_wrote:
                 data = data[1:]
 
-            if self._fit_header:
-                rewrite_header = False
-                for i in data:
+            rewrite_header = False
+            for i in data:
+                if isinstance(i, dict):
                     i, rewrite_header = self._header[ws.title].make_insert_data(i, self, rewrite_header)
-                    ws.append(ok_list_xlsx(i))
-                if rewrite_header:
-                    for c in range(1, ws.max_column + 1):
-                        ws.cell(self._header_row, c, value=self._header[ws.title][c])
 
-            else:
-                for i in data:
-                    ws.append(ok_list_xlsx(i))
+                ws.append(ok_list_xlsx(i))
+
+            if rewrite_header:
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(self._header_row, c, value=self._header[ws.title][c])
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
