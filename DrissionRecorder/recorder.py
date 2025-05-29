@@ -97,7 +97,7 @@ class Recorder(BaseRecorder):
         """
         while self._pause_add:  # 等待其它线程写入结束
             sleep(.1)
-        if coord and self._fast and self._type in ('csv', 'xlsx'):
+        if self._fast and coord and self._type in ('csv', 'xlsx'):
             self._to_slow_mode()
         self._methods['add_data'](data=data, coord=coord, table=table)
 

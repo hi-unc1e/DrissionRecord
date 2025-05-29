@@ -703,8 +703,11 @@ def _set_style(height, styles, ws, row):
 
 def create_csv(recorder):
     if not Path(recorder.path).exists():
-        with open(recorder.path, 'w', newline='', encoding=recorder.encoding):
-            pass
+        with open(recorder.path, 'w', newline='', encoding=recorder.encoding) as f:
+            if recorder._header[None]:
+                pass
+            elif recorder.data and isinstance(recorder.data[0], dict):
+                f.write(recorder.data[0].values())
     recorder._file_exists = True
 
 
