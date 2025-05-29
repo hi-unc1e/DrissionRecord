@@ -5,7 +5,7 @@ from openpyxl.reader.excel import load_workbook
 from openpyxl.utils import column_index_from_string
 from openpyxl.workbook import Workbook
 
-from .style import CellStyle
+from .cell_style import CellStyle
 from .tools import (make_valid_name, data_to_list_or_dict_simplify, data_to_list_or_dict,
                     Header, ZeroHeader, process_content_xlsx, ok_list_str)
 

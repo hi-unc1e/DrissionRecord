@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union, Any, Optional, List, Tuple, Dict
 
 from .base import OriginalRecorder, BaseRecorder
-from .style import CellStyle
+from .cell_style import CellStyle
 from .db_recorder import DBRecorder
 from .recorder import Recorder
 from .tools import Header

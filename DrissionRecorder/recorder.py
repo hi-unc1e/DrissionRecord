@@ -7,9 +7,9 @@ from openpyxl.reader.excel import load_workbook
 
 from .base import BaseRecorder
 from .setter import RecorderSetter, set_csv_header
-from .style.cell_style import CellStyleCopier, CellStyle, NoneStyle
-from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str, get_wb,
-                    fix_openpyxl_bug, get_key_cols, Header, get_and_set_csv_header, get_ws, create_csv, parse_coord,
+from .cell_style import CellStyleCopier, CellStyle, NoneStyle
+from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str,
+                    fix_openpyxl_bug, get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord,
                     data_to_list_or_dict, get_usable_coord, get_usable_coord_int, do_nothing, )
 
 
@@ -393,7 +393,7 @@ class Recorder(BaseRecorder):
             rewrite_header = False
             for i in data:
                 if isinstance(i, dict):
-                    i, rewrite_header = header.make_insert_list(i, self, rewrite_header)
+                    i, rewrite_header = header.make_insert_list(i, self._auto_new_header, rewrite_header)
                 ws.append([process_content_xlsx(x) for x in i])
 
             if rewrite_header:
@@ -468,31 +468,52 @@ class Recorder(BaseRecorder):
 
     def _to_csv_fast(self):
         """记录数据到csv文件"""
-        if not self._file_exists:
-            create_csv(self)
-        elif self._header is None and self._header_row > 0:
-            get_and_set_csv_header(self)
+        file, new_csv = get_csv(self, 'a')
+        writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
+        if new_csv:
+            if self._header[None] is None and self.data:
+                if isinstance(self.data[0], dict):
+                    self._header[None] = Header([h for h in self.data[0].keys() if isinstance(h, str)])
+                elif isinstance(self.data[0], (list, tuple)) and self.data[0] and isinstance(
+                        self.data[0][0], dict):
+                    self._header[None] = Header([h for h in self.data[0][0].keys() if isinstance(h, str)])
+                else:
+                    self._header[None] = Header()
+            else:
+                self._header[None] = Header()
+
+            if self._header[None]:
+                for _ in range(self._header_row - 1):
+                    writer.writerow([])
+                writer.writerow(ok_list_str(self._header[None]))
+
+        elif self._header[None] is None:
+            with open(self._path, 'r', newline='') as f:
+                reader = csv_reader(f, delimiter=self.delimiter, quotechar=self.quote_char)
+                try:
+                    for _ in range(self._header_row):
+                        header = next(reader)
+                except StopIteration:
+                    header = []
+                self._header[None] = Header(header)
 
         rewrite_header = False
-        with open(self.path, 'a+', newline='', encoding=self.encoding) as f:
-            from csv import writer
-            csv_write = writer(f, delimiter=self.delimiter, quotechar=self.quote_char)
-            if self._fit_header and self._header:
-                method = _to_csv1
-            elif self._fit_header and self._header_row == 0:
-                method = _to_csv2
-            else:
-                method = _to_csv3
+        for i in self.data:
+            if isinstance(i, dict):
+                i, rewrite_header = self._header[None].make_insert_list(i, self._auto_new_header, rewrite_header)
+            writer.writerow([process_content_str(x) for x in i])
+        file.close()
 
-            if method(self, csv_write, rewrite_header):
-                set_csv_header(self, self._header[None], self._header_row)
+        if rewrite_header:
+            set_csv_header(self, self._header[None], self._header_row)
 
     def _to_csv_slow(self):
         """填写数据到csv文件"""
-        if self._header is not None and not self._file_exists:
-            create_csv(self)
-        elif self._header is None and self._header_row > 0:
-            get_and_set_csv_header(self, True)
+        file, new_csv = get_csv(self, 'r')
+        reader = csv_reader(file, delimiter=self.delimiter, quotechar=self.quote_char)
+        lines = list(reader)
+        if new_csv:
+            pass
 
         with open(self.path, 'r', encoding=self.encoding) as f:
             reader = csv_reader(f, delimiter=self.delimiter, quotechar=self.quote_char)
@@ -998,41 +1019,6 @@ def _set_line_style(height, style, ws, row, max_col):
     if style:
         for i in range(1, max_col + 1):
             style.to_cell(ws.cell(row=row, column=i))
-
-
-def _to_csv1(recorder, writer, rewrite_header):
-    for i in recorder._data:
-        if isinstance(i, dict):
-            if recorder._auto_new_header and set(recorder._header) != set(i.keys()):
-                header = list(recorder._header) + [t for t in i.keys() if t not in recorder._header]
-                recorder._header = {h: c for c, h in enumerate(header, 1)}
-                rewrite_header = True
-            i = [i.get(h, '') for h in recorder._header]
-        writer.writerow(ok_list_str(i))
-    return rewrite_header
-
-
-def _to_csv2(recorder, writer, rewrite_header):
-    for i in recorder._data:
-        if isinstance(i, dict):
-            i = [(k, v) for k, v in i.items() if isinstance(k, int) and k > 0]
-            i.sort(key=lambda x: x[1])
-            t = []
-            wei = 0
-            for k, v in i:
-                for j in range(k - wei - 1):
-                    t.append('')
-                t.append(str(v))
-                wei = k
-            i = t
-        writer.writerow(ok_list_str(i))
-    return rewrite_header
-
-
-def _to_csv3(recorder, writer, rewrite_header):
-    for i in recorder._data:
-        writer.writerow(ok_list_str(i))
-    return rewrite_header
 
 
 def copy_some_row_style(ws, row, styles):

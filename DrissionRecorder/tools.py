@@ -8,7 +8,7 @@ from openpyxl.reader.excel import load_workbook
 from openpyxl.utils import column_index_from_string
 from openpyxl.workbook import Workbook
 
-from .style import CellStyle
+from .cell_style import CellStyle
 
 
 def remove_end_Nones(in_list):
@@ -19,7 +19,7 @@ def remove_end_Nones(in_list):
     flag = True
     for i in in_list[::-1]:
         if flag:
-            if i is None:
+            if i in (None, ''):
                 continue
             else:
                 flag = False
@@ -99,16 +99,16 @@ class Header(BaseHeader):
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_list(self, data, recorder, rewrite):
+    def make_insert_list(self, data, auto_new, rewrite):
         """生产写入文件list格式的行数据
         :param data: 待处理行数据
-        :param recorder: Recorder对象
+        :param auto_new: 有新表头时是否自动增加
         :param rewrite: 是否需要重写表头
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
             has_int = False
-            if recorder._auto_new_header:
+            if auto_new:
                 for k in data.keys():
                     if isinstance(k, int):
                         has_int = True
@@ -628,65 +628,6 @@ def data_to_list_or_dict(recorder, data):
         return data
 
 
-def get_and_set_csv_header(recorder, is_filler=False):
-    """在写入数据时，先获取表头，如果文件不存在就新建，如果空文件且数据为dict，自动增加表头"""
-    new = False
-    add_header = False
-    if recorder._file_exists or Path(recorder.path).exists():
-        from csv import reader
-        with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
-            u = reader(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
-            try:
-                for _ in range(recorder._header_row):
-                    header = next(u)
-                if not header or not any([i for i in header]):
-                    header = False  # 有表头行，但表头行是空的
-            except StopIteration:  # 文件是空的
-                if is_filler:
-                    coord, first_data = recorder._data[0]
-                    if coord != (None, True):
-                        recorder._header = False
-                        return
-                    else:
-                        first_data = first_data[0]
-                else:
-                    first_data = recorder._data[0]
-
-                if isinstance(first_data, dict):
-                    first_data = first_data.keys()
-                    new = True
-                    add_header = True
-                header = ok_list_str(first_data)
-
-    else:
-        new = True
-        if not is_filler:
-            first_data = recorder._data[0]
-        else:
-            coord, first_data = recorder._data[0]
-            if coord == (None, True):
-                first_data = first_data[0]
-            else:
-                first_data = None
-
-        if isinstance(first_data, dict):
-            first_data = first_data.keys()
-            new = True
-            add_header = True
-
-        header = ok_list_str(first_data) if first_data else False
-
-    if new:
-        with open(recorder.path, 'w', newline='', encoding=recorder.encoding) as f:
-            if add_header:
-                from csv import writer
-                csv_write = writer(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
-                csv_write.writerow(header)
-
-    recorder._file_exists = True
-    recorder._header = remove_end_Nones(header)
-
-
 def _set_style(height, styles, ws, row):
     if height is not None:
         ws.row_dimensions[row].height = height
@@ -701,14 +642,10 @@ def _set_style(height, styles, ws, row):
                     s.to_cell(ws.cell(row=row, column=k))
 
 
-def create_csv(recorder):
-    if not Path(recorder.path).exists():
-        with open(recorder.path, 'w', newline='', encoding=recorder.encoding) as f:
-            if recorder._header[None]:
-                pass
-            elif recorder.data and isinstance(recorder.data[0], dict):
-                f.write(recorder.data[0].values())
+def get_csv(recorder, mode):
     recorder._file_exists = True
+    return (open(recorder.path, mode, newline='', encoding=recorder.encoding),
+            not (recorder._file_exists or Path(recorder.path).exists()))
 
 
 def get_wb(recorder):

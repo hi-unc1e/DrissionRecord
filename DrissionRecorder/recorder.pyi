@@ -11,7 +11,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from .base import BaseRecorder
 from .setter import RecorderSetter
-from .style.cell_style import CellStyle
+from .cell_style import CellStyle
 from .tools import Header, RowData
 
 
