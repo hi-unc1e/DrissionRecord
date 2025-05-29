@@ -4,6 +4,8 @@ _header格式：{表名: Header对象}
 表名为None表示默认sheet或csv文件
 未设置header时值为None
 """
+from csv import writer as csv_writer
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Any, Optional, Union, List, Dict, Tuple
 
@@ -171,3 +173,6 @@ def handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_
 
 
 def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header: Header): ...
+
+
+def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None: ...

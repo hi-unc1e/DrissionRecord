@@ -468,34 +468,9 @@ class Recorder(BaseRecorder):
 
     def _to_csv_fast(self):
         """记录数据到csv文件"""
-        file, new_csv = get_csv(self, 'a')
+        file, new_csv = get_csv(self)
         writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
-        if new_csv:
-            if self._header[None] is None and self.data:
-                if isinstance(self.data[0], dict):
-                    self._header[None] = Header([h for h in self.data[0].keys() if isinstance(h, str)])
-                elif isinstance(self.data[0], (list, tuple)) and self.data[0] and isinstance(
-                        self.data[0][0], dict):
-                    self._header[None] = Header([h for h in self.data[0][0].keys() if isinstance(h, str)])
-                else:
-                    self._header[None] = Header()
-            else:
-                self._header[None] = Header()
-
-            if self._header[None]:
-                for _ in range(self._header_row - 1):
-                    writer.writerow([])
-                writer.writerow(ok_list_str(self._header[None]))
-
-        elif self._header[None] is None:
-            with open(self._path, 'r', newline='') as f:
-                reader = csv_reader(f, delimiter=self.delimiter, quotechar=self.quote_char)
-                try:
-                    for _ in range(self._header_row):
-                        header = next(reader)
-                except StopIteration:
-                    header = []
-                self._header[None] = Header(header)
+        get_and_set_csv_header(self, new_csv, file, writer)
 
         rewrite_header = False
         for i in self.data:
@@ -509,52 +484,45 @@ class Recorder(BaseRecorder):
 
     def _to_csv_slow(self):
         """填写数据到csv文件"""
-        file, new_csv = get_csv(self, 'r')
+        file, new_csv = get_csv(self)
+        writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
+        get_and_set_csv_header(self, new_csv, file, writer)
+        file.seek(0)
         reader = csv_reader(file, delimiter=self.delimiter, quotechar=self.quote_char)
         lines = list(reader)
-        if new_csv:
-            pass
+        lines_count = len(lines)
 
-        with open(self.path, 'r', encoding=self.encoding) as f:
-            reader = csv_reader(f, delimiter=self.delimiter, quotechar=self.quote_char)
-            lines = list(reader)
-            lines_count = len(lines)
+        header = self._header[None]
+        for i in self._data:
+            coord, cur_data = i
+            row, col = get_usable_coord_int(coord, lines_count, len(lines[0]) if lines_count else 1)
+            if not isinstance(cur_data[0], (list, tuple, dict)):
+                cur_data = (cur_data,)
 
-            header_len = len(self._header) if self._fit_header and self._header else None
-            for i in self._data:
-                coord = i[0]
-                cur_data = i[1]
+            for r, data in enumerate(cur_data, row):
+                for _ in range(r - lines_count):  # 若行数不够，填充行数
+                    lines.append([])
+                    lines_count += 1
+                row_num = r - 1
 
-                row, col = get_usable_coord_int(coord, lines_count, len(lines[0]) if lines_count else 1)
-                cur_data = (cur_data,) if not isinstance(cur_data[0], (list, tuple, dict)) else cur_data
+                if isinstance(data, dict):
+                    data = header.make_num_dict(data)
+                    raw_data = {c: v for c, v in enumerate(lines[row_num], 1)}
+                    for c, v in data.items():
+                        raw_data[c] = process_content_str(v)
+                    lines[row_num] = [raw_data[c] for c in range(1, max(raw_data)+1)]
+                    # todo: rewrite_header
 
-                for r, data in enumerate(cur_data, row):
-                    for _ in range(r - lines_count):  # 若行数不够，填充行数
-                        lines.append([])
-                        lines_count += 1
-                    row_num = r - 1
-
-                    if isinstance(data, dict):
-                        if self._fit_header and self._header:
-                            # 若列数不够，填充空列
-                            lines[row_num].extend([''] * (header_len - len(lines[row_num])))
-                            for k, h in enumerate(self._header):
-                                if h in data:
-                                    lines[row_num][k] = data[h]
-                            lines[row_num] = ok_list_str(lines[row_num])
-                            continue
-
-                        else:
-                            data = ok_list_str(data.values())
-
+                else:
                     # 若列数不够，填充空列
                     lines[row_num].extend([''] * (col - len(lines[row_num]) + len(data) - 1))
                     for k, j in enumerate(data):  # 填充数据
                         lines[row_num][col + k - 1] = process_content_str(j)
 
-            writer = csv_writer(open(self.path, 'w', encoding=self.encoding, newline=''),
-                                delimiter=self.delimiter, quotechar=self.quote_char)
-            writer.writerows(lines)
+        file.close()
+        writer = csv_writer(open(self.path, 'w', encoding=self.encoding, newline=''),
+                            delimiter=self.delimiter, quotechar=self.quote_char)
+        writer.writerows(lines)
 
     def _to_txt(self):
         """记录数据到txt文件"""
@@ -876,6 +844,37 @@ def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, k
             else:  # 只获取对应的列
                 x = len(line) + 1
                 res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
+
+
+def get_and_set_csv_header(recorder, new_csv, file, writer):
+    if new_csv:
+        if recorder._header[None] is None and recorder.data:
+            if isinstance(recorder.data[0], dict):
+                recorder._header[None] = Header([h for h in recorder.data[0].keys() if isinstance(h, str)])
+            elif isinstance(recorder.data[0], (list, tuple)) and recorder.data[0] and isinstance(
+                    recorder.data[0][0], dict):
+                recorder._header[None] = Header([h for h in recorder.data[0][0].keys() if isinstance(h, str)])
+            else:
+                recorder._header[None] = Header()
+        else:
+            recorder._header[None] = Header()
+
+        if recorder._header[None]:
+            for _ in range(recorder._header_row - 1):
+                writer.writerow([])
+            writer.writerow(ok_list_str(recorder._header[None]))
+
+    elif recorder._header[None] is None:
+        file.seek(0)
+        reader = csv_reader(file, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
+        header = []
+        try:
+            for _ in range(recorder._header_row):
+                header = next(reader)
+        except StopIteration:
+            pass
+        file.seek(2)
+        recorder._header[None] = Header(header)
 
 
 def data2ws_no_style(ws, header, row, col, data, not_new, max_row):

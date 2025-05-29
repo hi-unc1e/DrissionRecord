@@ -106,6 +106,7 @@ class Header(BaseHeader):
         :param rewrite: 是否需要重写表头
         :return: (处理后的行数据, 是否重写表头)
         """
+        # todo: 使用make_num_dict()优化逻辑
         if isinstance(data, dict):
             has_int = False
             if auto_new:
@@ -124,8 +125,8 @@ class Header(BaseHeader):
                         break
 
             if has_int:
-                data = {self.get_num(k): v for k, v in data.items()}
-                data = [data.get(c, None) for c in range(1, max(max(self.num_key), max(data)) + 1)]
+                data = self.make_num_dict(data)
+                data = [data.get(i, None) for i in range(1, max(data)+1)]
             else:
                 data = [data.get(c, None) for c in self.key_num]
 
@@ -642,9 +643,10 @@ def _set_style(height, styles, ws, row):
                     s.to_cell(ws.cell(row=row, column=k))
 
 
-def get_csv(recorder, mode):
+def get_csv(recorder):
     recorder._file_exists = True
-    return (open(recorder.path, mode, newline='', encoding=recorder.encoding),
+    Path(recorder.path).parent.mkdir(parents=True, exist_ok=True)
+    return (open(recorder.path, 'a+', newline='', encoding=recorder.encoding),
             not (recorder._file_exists or Path(recorder.path).exists()))
 
 

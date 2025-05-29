@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Union, Tuple, Any, Optional, List, Dict, Iterable
 
@@ -113,7 +114,7 @@ def data_to_list_or_dict_simplify(recorder: BaseRecorder,
 def data_to_list_or_dict(recorder: BaseRecorder, data: Union[list, tuple, dict, None]) -> Union[list, dict]: ...
 
 
-def get_csv(recorder: Recorder, mode:str) -> tuple: ...
+def get_csv(recorder: Recorder) -> Tuple[TextIOWrapper, bool]: ...
 
 
 def get_wb(recorder: Recorder) -> tuple: ...
