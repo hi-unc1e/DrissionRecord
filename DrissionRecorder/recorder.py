@@ -96,7 +96,7 @@ class Recorder(BaseRecorder):
         :return: None
         """
         while self._pause_add:  # 等待其它线程写入结束
-            sleep(.1)
+            sleep(.02)
         if self._fast and coord and self._type in ('csv', 'xlsx'):
             self._to_slow_mode()
         self._methods['add_data'](data=data, coord=coord, table=table)
@@ -138,7 +138,7 @@ class Recorder(BaseRecorder):
 
     def _add_data_slow(self, **args):
         while self._pause_add:  # 等待其它线程写入结束
-            sleep(.1)
+            sleep(.02)
 
         da = args['data']
         coord = args['coord']
@@ -392,9 +392,8 @@ class Recorder(BaseRecorder):
 
             rewrite_header = False
             for i in data:
-                if isinstance(i, dict):
-                    i, rewrite_header = header.make_insert_list(i, self._auto_new_header, rewrite_header)
-                ws.append([process_content_xlsx(x) for x in i])
+                i, rewrite_header = header.make_insert_list(i, self._auto_new_header, rewrite_header, 'xlsx')
+                ws.append(i)
 
             if rewrite_header:
                 for c in range(1, ws.max_column + 1):
@@ -402,11 +401,11 @@ class Recorder(BaseRecorder):
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
-                    _set_style(_row_height, _row_styles, ws, r)
+                    set_style(_row_height, _row_styles, ws, r)
 
             elif self._styles or self._row_height:
                 if isinstance(self._styles, dict):
-                    styles = header.make_num_dict(self._styles)
+                    styles = header.make_num_dict(self._styles, None)
                     styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
 
                 elif isinstance(self._styles, CellStyle):
@@ -415,7 +414,7 @@ class Recorder(BaseRecorder):
                     styles = self._styles
 
                 for r in range(begin_row, ws.max_row + 1):
-                    _set_style(self._row_height, styles, ws, r)
+                    set_style(self._row_height, styles, ws, r)
 
         wb.save(self.path)
         wb.close()
@@ -473,10 +472,9 @@ class Recorder(BaseRecorder):
         get_and_set_csv_header(self, new_csv, file, writer)
 
         rewrite_header = False
-        for i in self.data:
-            if isinstance(i, dict):
-                i, rewrite_header = self._header[None].make_insert_list(i, self._auto_new_header, rewrite_header)
-            writer.writerow([process_content_str(x) for x in i])
+        for i in self._data:
+            i, rewrite_header = self._header[None].make_insert_list(i, self._auto_new_header, rewrite_header, 'csv')
+            writer.writerow(i)
         file.close()
 
         if rewrite_header:
@@ -491,8 +489,9 @@ class Recorder(BaseRecorder):
         reader = csv_reader(file, delimiter=self.delimiter, quotechar=self.quote_char)
         lines = list(reader)
         lines_count = len(lines)
-
         header = self._header[None]
+
+        rewrite_header = False
         for i in self._data:
             coord, cur_data = i
             row, col = get_usable_coord_int(coord, lines_count, len(lines[0]) if lines_count else 1)
@@ -504,20 +503,27 @@ class Recorder(BaseRecorder):
                     lines.append([])
                     lines_count += 1
                 row_num = r - 1
+                lines[row_num], rewrite_header = self._header[None].make_change_list(lines[row_num],
+                                                                                     data, col,
+                                                                                     self._auto_new_header,
+                                                                                     rewrite_header, 'csv')
 
-                if isinstance(data, dict):
-                    data = header.make_num_dict(data)
-                    raw_data = {c: v for c, v in enumerate(lines[row_num], 1)}
-                    for c, v in data.items():
-                        raw_data[c] = process_content_str(v)
-                    lines[row_num] = [raw_data[c] for c in range(1, max(raw_data)+1)]
-                    # todo: rewrite_header
+                # if isinstance(data, dict):
+                #     data = header.make_num_dict(data, 'csv')
+                #     raw_data = {c: v for c, v in enumerate(lines[row_num], 1)}
+                #     raw_data = {**raw_data, **data}
+                #     lines[row_num] = [raw_data[c] for c in range(1, max(raw_data) + 1)]
+                #
+                # else:
+                #     # 若列数不够，填充空列
+                #     lines[row_num].extend([''] * (col - len(lines[row_num]) + len(data) - 1))
+                #     for k, j in enumerate(data):  # 填充数据
+                #         lines[row_num][col + k - 1] = process_content_str(j)
 
-                else:
-                    # 若列数不够，填充空列
-                    lines[row_num].extend([''] * (col - len(lines[row_num]) + len(data) - 1))
-                    for k, j in enumerate(data):  # 填充数据
-                        lines[row_num][col + k - 1] = process_content_str(j)
+        if rewrite_header:
+            for _ in range(self._header_row - lines_count):  # 若行数不够，填充行数
+                lines.append([])
+            lines[self._header_row - 1] = list(header.num_key.values())
 
         file.close()
         writer = csv_writer(open(self.path, 'w', encoding=self.encoding, newline=''),
@@ -628,7 +634,7 @@ def new_sheet_fast(recorder, ws, data, first_wrote):
 
     if recorder._styles or recorder._row_height:
         for r in need_set_style:
-            _set_style(recorder._row_height, recorder._styles, ws, r)
+            set_style(recorder._row_height, recorder._styles, ws, r)
 
     return first_wrote
 
@@ -880,8 +886,8 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
 def data2ws_no_style(ws, header, row, col, data, not_new, max_row):
     for r, curr_data in enumerate(data, row):
         if isinstance(curr_data, dict):
-            for c, val in header.make_num_dict(curr_data).items():
-                ws.cell(r, c, value=process_content_xlsx(val))
+            for c, val in header.make_num_dict(curr_data, 'xlsx').items():
+                ws.cell(r, c, value=val)
         else:
             for key, j in enumerate(curr_data):
                 ws.cell(r, col + key, value=process_content_xlsx(j))
@@ -893,8 +899,8 @@ def data2ws_has_style(ws, header, row, col, data, not_new, max_row):
         for r, curr_data in enumerate(data, row):
             if isinstance(curr_data, dict):
                 style = []
-                for c, val in header.make_num_dict(curr_data).items():
-                    ws.cell(r, c, value=process_content_xlsx(val))
+                for c, val in header.make_num_dict(curr_data, 'xlsx').items():
+                    ws.cell(r, c, value=val)
                     style.append(c)
                 styles.append(style)
             else:
@@ -943,7 +949,8 @@ def set_img_to_ws(ws, data, empty, recorder):
     elif height:
         img.width = int(img.width * (height / img.height))
         img.height = height
-    ws.add_image(img, (row, Header._NUM_KEY[col]))
+    # ws.add_image(img, (row, Header._NUM_KEY[col]))
+    ws.add_image(img, f'{Header._NUM_KEY[col]}{row}')
 
 
 def set_style_to_ws(ws, data, empty, recorder, header):
@@ -957,7 +964,7 @@ def set_style_to_ws(ws, data, empty, recorder, header):
             none_style = NoneStyle()
             coord = parse_coord(coord, recorder.data_col)
             row, col = get_usable_coord(coord, max_row, ws)
-            for h, s in header.make_num_dict(data[1][1]).items():
+            for h, s in header.make_num_dict(data[1][1], None).items():
                 if not s:
                     s = none_style
                 s.to_cell(ws.cell(row, header[h]), replace=mode)
@@ -1002,7 +1009,7 @@ def set_style_to_ws(ws, data, empty, recorder, header):
                 ws.row_dimensions[int(r)].height = height
 
 
-def _set_style(height, styles, ws, row):
+def set_style(height, styles, ws, row):
     if height is not None:
         ws.row_dimensions[row].height = height
 
@@ -1010,14 +1017,6 @@ def _set_style(height, styles, ws, row):
         for c, s in enumerate(styles, start=1):
             if s:
                 s.to_cell(ws.cell(row=row, column=c))
-
-
-def _set_line_style(height, style, ws, row, max_col):
-    if height is not None:
-        ws.row_dimensions[row].height = height
-    if style:
-        for i in range(1, max_col + 1):
-            style.to_cell(ws.cell(row=row, column=i))
 
 
 def copy_some_row_style(ws, row, styles):
@@ -1033,7 +1032,7 @@ def copy_full_row_style(ws, row, cur_data):
     """复制上一行整行样式到新行中"""
     _row_styles = [CellStyleCopier(i) for i in ws[row - 1]]
     height = ws.row_dimensions[row - 1].height
-    for r, i in enumerate(cur_data, row):
+    for r in range(row, len(cur_data) + 1):
         for k, s in enumerate(_row_styles, start=1):
             if s:
                 s.to_cell(ws.cell(row=r, column=k))
@@ -1047,3 +1046,10 @@ def copy_part_row_style(ws, row, cur_data, col):
         for c in range(len(i)):
             if _row_styles[c + col - 1]:
                 _row_styles[c + col - 1].to_cell(ws.cell(row=r, column=c + col))
+
+# def _set_line_style(height, style, ws, row, max_col):
+#     if height is not None:
+#         ws.row_dimensions[row].height = height
+#     if style:
+#         for i in range(1, max_col + 1):
+#             style.to_cell(ws.cell(row=row, column=i))

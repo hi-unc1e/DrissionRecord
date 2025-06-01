@@ -38,9 +38,62 @@ def _get_column_letter(col_idx):
     return ''.join(reversed(letters))
 
 
+def process_content_xlsx(content):
+    """处理单个单元格要写入的数据
+    :param content: 未处理的数据内容
+    :return: 处理后的数据
+    """
+    if isinstance(content, (str, int, float, type(None))):
+        data = content
+    elif isinstance(content, (Cell, ReadOnlyCell)):
+        data = content.value
+    else:
+        data = str(content)
+
+    if isinstance(data, str):
+        data = sub(r'[\000-\010]|[\013-\014]|[\016-\037]', '', data)
+
+    return data
+
+
+def process_content_json(content):
+    """处理单个单元格要写入的数据
+    :param content: 未处理的数据内容
+    :return: 处理后的数据
+    """
+    if isinstance(content, (str, int, float, type(None))):
+        return content
+    elif isinstance(content, (Cell, ReadOnlyCell)):
+        return content.value
+    else:
+        return str(content)
+
+
+def process_content_str(content):
+    """处理单个单元格要写入的数据，以str格式输出
+    :param content: 未处理的数据内容
+    :return: 处理后的数据
+    """
+    if isinstance(content, str):
+        return content
+    elif content is None:
+        return ''
+    elif isinstance(content, (Cell, ReadOnlyCell)):
+        return str(content.value)
+    else:
+        return str(content)
+
+
+def do_nothing(*args, **kwargs):
+    return
+
+
 class BaseHeader(object):
     _NUM_KEY = {}
     _KEY_NUM = {}
+    _CONTENT_FUNCS = {'csv': process_content_str,
+                      'xlsx': process_content_xlsx,
+                      None: do_nothing}
 
     def __new__(cls, header=None):
         if not cls._NUM_KEY:
@@ -99,45 +152,71 @@ class Header(BaseHeader):
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_list(self, data, auto_new, rewrite):
-        """生产写入文件list格式的行数据
+    def make_insert_list(self, data, auto_new, rewrite, file_type):
+        """生产写入文件list格式的新行数据
         :param data: 待处理行数据
         :param auto_new: 有新表头时是否自动增加
         :param rewrite: 是否需要重写表头
+        :param file_type: 文件类型，用于选择处理方法
         :return: (处理后的行数据, 是否重写表头)
         """
-        # todo: 使用make_num_dict()优化逻辑
         if isinstance(data, dict):
-            has_int = False
+            header_len = len(self.num_key)
             if auto_new:
                 for k in data.keys():
-                    if isinstance(k, int):
-                        has_int = True
-                    elif isinstance(k, str) and k not in self.key_num:
-                        num = len(self.num_key) + 1
+                    if isinstance(k, str) and k not in self.key_num:
+                        num = header_len + 1
                         self.key_num[k] = num
                         self.num_key[num] = k
                         rewrite = True
-            else:
-                for k in data.keys():
-                    if isinstance(k, int):
-                        has_int = True
-                        break
 
-            if has_int:
-                data = self.make_num_dict(data)
-                data = [data.get(i, None) for i in range(1, max(data)+1)]
-            else:
-                data = [data.get(c, None) for c in self.key_num]
+            data = self.make_num_dict(data, file_type)
+            data = [data.get(i, None) for i in range(1, max(max(data), header_len) + 1)]
+
+        else:
+            data = [self._CONTENT_FUNCS[file_type](v) for v in data]
 
         return data, rewrite
 
-    def make_num_dict(self, data):
+    def make_change_list(self, line_data, data, col, auto_new, rewrite, file_type):
+        """生产写入文件list格式的原有行数据
+        :param line_data: 原有行数据
+        :param data: 待处理行数据
+        :param col: 要写入的列
+        :param auto_new: 有新表头时是否自动增加
+        :param rewrite: 是否需要重写表头
+        :param file_type: 文件类型，用于选择处理方法
+        :return: (处理后的行数据, 是否重写表头)
+        """
+        if isinstance(data, dict):
+            header_len = len(self.num_key)
+            if auto_new:
+                for k in data.keys():
+                    if isinstance(k, str) and k not in self.key_num:
+                        num = header_len + 1
+                        self.key_num[k] = num
+                        self.num_key[num] = k
+                        rewrite = True
+
+            data = self.make_num_dict(data, file_type)
+            raw_data = {c: v for c, v in enumerate(line_data, 1)}
+            raw_data = {**raw_data, **data}
+            data = [raw_data[c] for c in range(1, max(raw_data) + 1)]
+
+        else:
+            # 若列数不够，填充空列
+            line_data.extend([''] * (col - len(line_data) + len(data) - 1))
+            for k, j in enumerate(data):  # 填充数据
+                line_data[col + k - 1] = self._CONTENT_FUNCS[file_type](j)
+
+        return data, rewrite
+
+    def make_num_dict(self, data, file_type):
         val = {}
         for k, v in data.items():
             num = self.get_num(k)
             if num:
-                val[num] = v
+                val[num] = self._CONTENT_FUNCS[file_type](v)
         return val
 
     def get_key(self, num):
@@ -204,15 +283,16 @@ class ZeroHeader(Header):
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
-    def make_insert_list(self, data, recorder, rewrite):
+    def make_insert_list(self, data, recorder, rewrite, file_type):
         """生产写入文件list格式的行数据
         :param data: 待处理行数据
         :param recorder: Recorder对象
         :param rewrite: 是否需要重写表头
+        :param file_type: 文件类型，用于选择处理方法
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
-            val = self.make_num_dict(data)
+            val = self.make_num_dict(data, file_type)
             data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
         return data, False
 
@@ -434,52 +514,6 @@ def parse_coord(coord=None, data_col=None):
     if not return_coord or return_coord[0] == 0 or return_coord[1] == 0:
         raise ValueError(f'{return_coord} 坐标格式不正确。')
     return return_coord
-
-
-def process_content_xlsx(content):
-    """处理单个单元格要写入的数据
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
-    if isinstance(content, (str, int, float, type(None))):
-        data = content
-    elif isinstance(content, (Cell, ReadOnlyCell)):
-        data = content.value
-    else:
-        data = str(content)
-
-    if isinstance(data, str):
-        data = sub(r'[\000-\010]|[\013-\014]|[\016-\037]', '', data)
-
-    return data
-
-
-def process_content_json(content):
-    """处理单个单元格要写入的数据
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
-    if isinstance(content, (str, int, float, type(None))):
-        return content
-    elif isinstance(content, (Cell, ReadOnlyCell)):
-        return content.value
-    else:
-        return str(content)
-
-
-def process_content_str(content):
-    """处理单个单元格要写入的数据，以str格式输出
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
-    if isinstance(content, str):
-        return content
-    elif content is None:
-        return ''
-    elif isinstance(content, (Cell, ReadOnlyCell)):
-        return str(content.value)
-    else:
-        return str(content)
 
 
 def ok_list_xlsx(data_list):
@@ -704,10 +738,6 @@ def get_tables(path):
     tables = wb.sheetnames
     wb.close()
     return tables
-
-
-def do_nothing(*args, **kwargs):
-    return
 
 
 def get_key_cols(cols, header, is_header):

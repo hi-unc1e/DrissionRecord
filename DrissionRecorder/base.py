@@ -92,7 +92,7 @@ class OriginalRecorder(object):
             while True:
                 try:
                     while self._pause_write:  # 等待其它线程写入结束
-                        sleep(.1)
+                        sleep(.02)
 
                     self._pause_write = True
                     self._record()

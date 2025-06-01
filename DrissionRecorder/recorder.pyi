@@ -7,7 +7,7 @@ _header格式：{表名: Header对象}
 from csv import writer as csv_writer
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Optional, Union, List, Dict, Tuple
+from typing import Any, Optional, Union, List, Dict, Tuple, Iterable
 
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -37,7 +37,7 @@ class Recorder(BaseRecorder):
 
     def __init__(self, path: Union[str, Path] = None, cache_size: int = 1000): ...
 
-    def _set_methods(self, file_type) -> None: ...
+    def _set_methods(self, file_type: str) -> None: ...
 
     @property
     def set(self) -> RecorderSetter: ...
@@ -116,7 +116,7 @@ class Recorder(BaseRecorder):
              signs: Any = None,
              deny_sign: bool = False,
              count: int = None,
-             begin_row: int = None) -> List[RowData]: ...
+             begin_row: Optional[int] = None) -> List[RowData]: ...
 
     def clear(self) -> None: ...
 
@@ -144,7 +144,7 @@ class Recorder(BaseRecorder):
 def get_header(recorder: Recorder, ws: Worksheet = None) -> Header: ...
 
 
-def new_sheet_fast(recorder, ws, data, first_wrote) -> bool: ...
+def new_sheet_fast(recorder: Recorder, ws: Worksheet, data: list, first_wrote: bool) -> bool: ...
 
 
 def new_sheet_slow(recorder: Recorder, ws: Worksheet, data: list,
@@ -152,27 +152,64 @@ def new_sheet_slow(recorder: Recorder, ws: Worksheet, data: list,
 
 
 def get_xlsx_rows(recorder: Recorder,
-                  header: Header, key_cols: list,
-                  begin_row: int, sign_col: Union[str, int, bool], sign: Any,
-                  deny_sign: bool, count: int, ws: Worksheet) -> List[dict, list]: ...
+                  header: Header, key_cols: Union[list, True],
+                  begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
+                  deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]: ...
 
 
 def get_csv_rows(recorder: Recorder,
-                 header: Header, key_cols: list,
-                 begin_row: int, sign_col: Union[str, int, bool], sign: Any,
-                 deny_sign: bool, count: int, ws: Worksheet) -> List[dict, list]: ...
+                 header: Header, key_cols: Union[list, True],
+                 begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
+                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]: ...
 
 
-def handle_xlsx_rows_with_count(key_cols, deny_sign, header: Header, rows, begin_row, sign_col, sign, count): ...
+def handle_xlsx_rows_with_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows,
+                                begin_row: Optional[int], sign_col,
+                                sign, count: int) -> List[RowData]: ...
 
 
-def handle_xlsx_rows_without_count(key_cols, deny_sign, header: Header, rows, begin_row, sign_col, sign): ...
+def handle_xlsx_rows_without_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows,
+                                   begin_row: Optional[int],
+                                   sign_col, sign) -> List[RowData]: ...
 
 
-def handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header: Header, count): ...
+def handle_csv_rows_with_count(lines, begin_row: Optional[int], sign_col, sign, deny_sign: bool,
+                               key_cols: Union[list, True], res,
+                               header: Header, count: int) -> List[RowData]: ...
 
 
-def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header: Header): ...
+def handle_csv_rows_without_count(lines, begin_row: Optional[int], sign_col, sign, deny_sign: bool,
+                                  key_cols: Union[list, True], res,
+                                  header: Header) -> List[RowData]: ...
 
 
 def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None: ...
+
+
+def data2ws_no_style(ws: Worksheet, header: Header, row: int, col: int, data: list, not_new: bool,
+                     max_row: int) -> None: ...
+
+
+def data2ws_has_style(ws: Worksheet, header: Header, row: int, col: int, data: list, not_new: bool,
+                      max_row: int) -> None: ...
+
+
+def set_link_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder) -> None: ...
+
+
+def set_img_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder) -> None: ...
+
+
+def set_style_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder, header: Header) -> None: ...
+
+
+def set_style(height: float, styles: List[CellStyle], ws: Worksheet, row: int) -> None: ...
+
+
+def copy_some_row_style(ws: Worksheet, row: int, styles: List[Iterable]) -> None: ...
+
+
+def copy_full_row_style(ws: Worksheet, row: int, cur_data: list) -> None: ...
+
+
+def copy_part_row_style(ws: Worksheet, row: int, cur_data: list, col: int) -> None: ...

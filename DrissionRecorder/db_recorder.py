@@ -47,7 +47,7 @@ class DBRecorder(BaseRecorder):
         :return: None
         """
         while self._pause_add:  # 等待其它线程写入结束
-            sleep(.1)
+            sleep(.02)
 
         table = table or self.table
         if not isinstance(table, str):

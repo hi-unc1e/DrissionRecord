@@ -24,7 +24,7 @@ class ByteRecorder(OriginalRecorder):
         :return: None
         """
         while self._pause_add:  # 等待其它线程写入结束
-            sleep(.1)
+            sleep(.02)
 
         if not isinstance(data, bytes):
             raise TypeError('只能接受bytes类型数据。')
