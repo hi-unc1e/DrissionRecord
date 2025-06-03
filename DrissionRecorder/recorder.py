@@ -42,7 +42,6 @@ class Recorder(BaseRecorder):
         self._row_height = None
         self._styles = None
         self._header_row = 1
-        self._auto_new_header = False
         self._fast = True
         self._link_style = None
         self.data_col = 1

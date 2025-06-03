@@ -112,15 +112,15 @@ class DBRecorder(BaseRecorder):
         :return: None
         """
         if isinstance(data_list[0], dict):  # 检查是否要新增列
-            keys = data_list[0].keys()
-            for key in keys:
-                if key not in tables[table]:
-                    sql = f'ALTER TABLE `{table}` ADD COLUMN `{key}`'
-                    self._cur.execute(sql)
-                    tables[table].append(key)
+            if self._auto_new_header:
+                for key in data_list[0].keys():
+                    if key not in tables[table]:
+                        sql = f'ALTER TABLE `{table}` ADD COLUMN `{key}`'
+                        self._cur.execute(sql)
+                        tables[table].append(key)
 
-            question_masks = ','.join('?' * len(keys))
-            keys_txt = '`' + '`,`'.join(keys) + '`'
+            question_masks = ','.join('?' * len(tables[table]))
+            keys_txt = '`' + '`,`'.join(tables[table]) + '`'
             values = [ok_list_db(i.values()) for i in data_list]
             sql = f'INSERT INTO `{table}` ({keys_txt}) values ({question_masks})'
 

@@ -107,6 +107,15 @@ class BaseSetter(OriginalSetter):
         self._recorder._encoding = encoding
         return self
 
+    def auto_new_header(self, on_off=True):
+        """数据中有表头不存在的列时是否自动添加到表头，只有xlsx和csv格式有效
+        :param on_off: bool表示开关
+        :return: 设置对象自己
+        """
+        self._recorder.record()
+        self._recorder._auto_new_header = on_off
+        return self
+
 
 class RecorderSetter(BaseSetter):
     def header(self, header, table=None, to_file=True, row=None):
@@ -204,17 +213,6 @@ class RecorderSetter(BaseSetter):
         if isinstance(name, bool):
             name = None
         self._recorder._table = name
-        return self
-
-    def auto_new_header(self, on_off=True):
-        """数据中有表头不存在的列时是否自动添加到表头，只有xlsx和csv格式有效
-        :param on_off: bool表示开关
-        :return: 设置对象自己
-        """
-        if self._recorder.type not in ('csv', 'xlsx'):
-            raise TypeError('只有csv或xlsx格式可设置表头。')
-        self._recorder.record()
-        self._recorder._auto_new_header = on_off
         return self
 
     def follow_styles(self, on_off=True):

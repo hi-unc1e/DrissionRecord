@@ -175,6 +175,7 @@ class BaseRecorder(OriginalRecorder):
         self._encoding = 'utf-8'
         self._table = None
         self._handle_data_method = data_to_list_or_dict_simplify
+        self._auto_new_header = False
 
     @property
     def set(self):
