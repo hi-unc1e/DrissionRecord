@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+from collections.abc import Iterable
 from csv import reader as csv_reader, writer as csv_writer
 from pathlib import Path
 from re import search, sub, match
@@ -152,72 +153,96 @@ class Header(BaseHeader):
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_list(self, data, auto_new, rewrite, file_type):
+    def make_insert_list(self, data, file_type):
+        """生成写入文件list格式的新行数据
+        :param data: 待处理行数据
+        :param file_type: 文件类型，用于选择处理方法
+        :return: 处理后的行数据
+        """
+        if isinstance(data, dict):
+            data = self.make_num_dict(data, file_type)[0]
+            data = [data.get(i, None) for i in range(1, max(max(data), len(self.num_key)) + 1)]
+        else:
+            data = [self._CONTENT_FUNCS[file_type](v) for v in data]
+        return data
+
+    def make_insert_list_rewrite(self, data, file_type, rewrite):
         """生产写入文件list格式的新行数据
         :param data: 待处理行数据
-        :param auto_new: 有新表头时是否自动增加
         :param rewrite: 是否需要重写表头
         :param file_type: 文件类型，用于选择处理方法
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
-            header_len = len(self.num_key)
-            if auto_new:
-                for k in data.keys():
-                    if isinstance(k, str) and k not in self.key_num:
-                        num = header_len + 1
-                        self.key_num[k] = num
-                        self.num_key[num] = k
-                        rewrite = True
-
-            data = self.make_num_dict(data, file_type)
+            data, rewrite, header_len = self.make_num_dict_rewrite(data, file_type, rewrite)
             data = [data.get(i, None) for i in range(1, max(max(data), header_len) + 1)]
-
         else:
             data = [self._CONTENT_FUNCS[file_type](v) for v in data]
-
         return data, rewrite
 
-    def make_change_list(self, line_data, data, col, auto_new, rewrite, file_type):
+    def make_change_list(self, line_data, data, col, file_type, rewrite):
         """生产写入文件list格式的原有行数据
         :param line_data: 原有行数据
         :param data: 待处理行数据
         :param col: 要写入的列
-        :param auto_new: 有新表头时是否自动增加
+        :param file_type: 文件类型，用于选择处理方法
+        :return: (处理后的行数据, 是否重写表头)
+        """
+        if isinstance(data, dict):
+            data = self.make_num_dict(data, file_type)[0]
+            raw_data = {c: v for c, v in enumerate(line_data, 1)}
+            raw_data = {**raw_data, **data}
+            line_data = [raw_data.get(c, None) for c in range(1, max(raw_data) + 1)]
+        else:
+            line_data.extend([''] * (col - len(line_data) + len(data) - 1))  # 若列数不够，填充空列
+            for k, j in enumerate(data):  # 填充数据
+                line_data[col + k - 1] = self._CONTENT_FUNCS[file_type](j)
+        return line_data, False
+
+    def make_change_list_rewrite(self, line_data, data, col, file_type, rewrite):
+        """生产写入文件list格式的原有行数据
+        :param line_data: 原有行数据
+        :param data: 待处理行数据
+        :param col: 要写入的列
         :param rewrite: 是否需要重写表头
         :param file_type: 文件类型，用于选择处理方法
         :return: (处理后的行数据, 是否重写表头)
         """
         if isinstance(data, dict):
-            header_len = len(self.num_key)
-            if auto_new:
-                for k in data.keys():
-                    if isinstance(k, str) and k not in self.key_num:
-                        num = header_len + 1
-                        self.key_num[k] = num
-                        self.num_key[num] = k
-                        rewrite = True
-
-            data = self.make_num_dict(data, file_type)
+            data, rewrite, header_len = self.make_num_dict_rewrite(data, file_type, rewrite)
             raw_data = {c: v for c, v in enumerate(line_data, 1)}
             raw_data = {**raw_data, **data}
-            data = [raw_data[c] for c in range(1, max(raw_data) + 1)]
-
+            line_data = [raw_data.get(c, None) for c in range(1, max(raw_data) + 1)]
         else:
-            # 若列数不够，填充空列
-            line_data.extend([''] * (col - len(line_data) + len(data) - 1))
+            line_data.extend([''] * (col - len(line_data) + len(data) - 1))  # 若列数不够，填充空列
             for k, j in enumerate(data):  # 填充数据
                 line_data[col + k - 1] = self._CONTENT_FUNCS[file_type](j)
+        return line_data, rewrite
 
-        return data, rewrite
-
-    def make_num_dict(self, data, file_type):
+    def make_num_dict(self, *keys):
+        data = keys[0]
+        file_type = keys[1]
         val = {}
         for k, v in data.items():
             num = self.get_num(k)
             if num:
                 val[num] = self._CONTENT_FUNCS[file_type](v)
-        return val
+        return val, False, 0
+
+    def make_num_dict_rewrite(self, *keys):
+        data, file_type, rewrite = keys
+        val = {}
+        header_len = len(self.num_key)
+        for k, v in data.items():
+            if isinstance(k, str) and k not in self.key_num:
+                header_len += 1
+                self.key_num[k] = header_len
+                self.num_key[header_len] = k
+                rewrite = True
+            num = self.get_num(k)
+            if num:
+                val[num] = self._CONTENT_FUNCS[file_type](v)
+        return val, rewrite, header_len
 
     def get_key(self, num):
         """返回指定列序号对应的header key，如为None返回列序号
@@ -242,7 +267,7 @@ class Header(BaseHeader):
 
     def __getitem__(self, item):
         if isinstance(item, str):
-            self.key_num.get(item)
+            return self.key_num.get(item)
         elif isinstance(item, int) and item > 0:
             return self.num_key.get(item, None)
         else:
@@ -283,18 +308,29 @@ class ZeroHeader(Header):
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
-    def make_insert_list(self, data, recorder, rewrite, file_type):
+    def make_insert_list(self, data, file_type):
         """生产写入文件list格式的行数据
         :param data: 待处理行数据
-        :param recorder: Recorder对象
-        :param rewrite: 是否需要重写表头
         :param file_type: 文件类型，用于选择处理方法
-        :return: (处理后的行数据, 是否重写表头)
+        :return: 处理后的行数据
         """
         if isinstance(data, dict):
-            val = self.make_num_dict(data, file_type)
+            val = self.make_num_dict(data, file_type)[0]
             data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
-        return data, False
+        return data
+
+    def make_insert_list_rewrite(self, data, file_type, rewrite):
+        """生产写入文件list格式的行数据
+        :param data: 待处理行数据
+        :param file_type: 文件类型，用于选择处理方法
+        :param rewrite: 没有实际用处
+        :return: (处理后的行数据, 是否重写表头)
+        """
+        return self.make_insert_list(data, file_type), False
+
+    def make_num_dict_rewrite(self, *keys):
+        data, file_type, rewrite = keys
+        return self.make_num_dict(data, file_type)
 
     def __getitem__(self, item):
         return self.num_key.get(item, None) if isinstance(item, int) else self.key_num.get(item.upper(), None)
@@ -502,8 +538,8 @@ def parse_coord(coord=None, data_col=None):
         if coord[0] not in (None, 'new', 'newline'):
             x = int(coord[0])
 
-        if isinstance(coord[1], int):
-            y = coord[1]
+        if isinstance(coord[1], int) or (isinstance(coord[1], str) and coord[1].isdigit()):
+            y = int(coord[1])
         elif isinstance(coord[1], str):
             y = column_index_from_string(coord[1])
         else:
@@ -761,3 +797,15 @@ def get_key_cols(cols, header, is_header):
         return res
     else:
         raise TypeError('col值只能是int或str。')
+
+
+def is_sigal_data(data):
+    """判断数据是否独立数据"""
+    return not isinstance(data, Iterable) or isinstance(data, str)
+
+
+def is_2D_data(data):
+    """判断传入数据是否二维数据"""
+    pass
+    # return (isinstance(data, Iterable) and not isinstance(data, (str, dict)) and data and isinstance(data, Iterable)
+    #         and isinstance(data[0], Iterable) and not isinstance(data[0], (str, dict)))

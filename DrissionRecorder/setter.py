@@ -184,6 +184,7 @@ class RecorderSetter(BaseSetter):
             if suffix:
                 file_type = suffix[1:]
         self.file_type(file_type)
+        self._recorder._header = {None: None}
         return self
 
     def file_type(self, file_type):

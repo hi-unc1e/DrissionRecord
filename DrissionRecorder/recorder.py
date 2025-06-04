@@ -9,8 +9,8 @@ from .base import BaseRecorder
 from .setter import RecorderSetter, set_csv_header
 from .cell_style import CellStyleCopier, CellStyle, NoneStyle
 from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str,
-                    fix_openpyxl_bug, get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord,
-                    data_to_list_or_dict, get_usable_coord, get_usable_coord_int, do_nothing, )
+                    fix_openpyxl_bug, get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord, do_nothing,
+                    data_to_list_or_dict, get_usable_coord, get_usable_coord_int, is_sigal_data, is_2D_data)
 
 
 class Recorder(BaseRecorder):
@@ -109,7 +109,6 @@ class Recorder(BaseRecorder):
             da = ([],)
             self._data_count += 1
 
-        # 一维数组
         elif isinstance(da, dict) or (isinstance(da, (list, tuple)) and not isinstance(da[0], (list, tuple, dict))):
             da = [self._handle_data_method(self, da)]
             self._data_count += 1
@@ -389,14 +388,18 @@ class Recorder(BaseRecorder):
             if first_wrote:
                 data = data[1:]
 
-            rewrite_header = False
-            for i in data:
-                i, rewrite_header = header.make_insert_list(i, self._auto_new_header, rewrite_header, 'xlsx')
-                ws.append(i)
+            if self._auto_new_header:
+                rewrite = False
+                for i in data:
+                    i, rewrite = header.make_insert_list_rewrite(i, 'xlsx', rewrite)
+                    ws.append(i)
+                if rewrite:
+                    for c in range(1, ws.max_column + 1):
+                        ws.cell(self._header_row, c, value=header[c])
 
-            if rewrite_header:
-                for c in range(1, ws.max_column + 1):
-                    ws.cell(self._header_row, c, value=header[c])
+            else:
+                for i in data:
+                    ws.append(header.make_insert_list(i, 'xlsx'))
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
@@ -404,7 +407,7 @@ class Recorder(BaseRecorder):
 
             elif self._styles or self._row_height:
                 if isinstance(self._styles, dict):
-                    styles = header.make_num_dict(self._styles, None)
+                    styles = header.make_num_dict(self._styles, None)[0]
                     styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
 
                 elif isinstance(self._styles, CellStyle):
@@ -422,6 +425,9 @@ class Recorder(BaseRecorder):
         """填写数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
+
+        method = data2ws_has_style if self._follow_styles else data2ws_no_style
+        rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
         for table in {}.fromkeys(list(self._data.keys()) + list(self._style_data.keys())):
             ws, new_sheet = get_ws(wb, table, tables, new_file)
             first_data_wrote = False
@@ -442,8 +448,8 @@ class Recorder(BaseRecorder):
                 new_file = False
 
             if self._data.get(table, None):
-                method = data2ws_has_style if self._follow_styles else data2ws_no_style
                 data = self._data[table][1:] if first_data_wrote else self._data[table]
+                rewrite = False
                 for cur_data in data:
                     if cur_data[0] == 'set_link':
                         set_link_to_ws(ws, cur_data[1], False, self)
@@ -454,7 +460,11 @@ class Recorder(BaseRecorder):
                         row, col = get_usable_coord(cur_data[0], max_row, ws)
                         not_new = cur_data[0][0]  # 是否添加到新行
                         cur_data = cur_data[1] if isinstance(cur_data[1][0], (list, tuple, dict)) else (cur_data[1],)
-                        method(ws, header, row, col, cur_data, not_new, max_row)
+                        rewrite = method(ws, header, row, col, cur_data, not_new, max_row, rewrite_method, rewrite)
+
+                if rewrite:
+                    for c in range(1, ws.max_column + 1):
+                        ws.cell(self._header_row, c, value=header[c])
 
             if self._style_data.get(table, None):
                 style = self._style_data[table][1:] if first_style_wrote else self._style_data[table]
@@ -470,14 +480,19 @@ class Recorder(BaseRecorder):
         writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
         get_and_set_csv_header(self, new_csv, file, writer)
 
-        rewrite_header = False
-        for i in self._data:
-            i, rewrite_header = self._header[None].make_insert_list(i, self._auto_new_header, rewrite_header, 'csv')
-            writer.writerow(i)
-        file.close()
+        if self._auto_new_header:
+            rewrite = False
+            for i in self._data:
+                i, rewrite = self._header[None].make_insert_list_rewrite(i, 'csv', rewrite)
+                writer.writerow(i)
+            file.close()
+            if rewrite:
+                set_csv_header(self, self._header[None], self._header_row)
 
-        if rewrite_header:
-            set_csv_header(self, self._header[None], self._header_row)
+        else:
+            for i in self._data:
+                writer.writerow(self._header[None].make_insert_list(i, 'csv'))
+            file.close()
 
     def _to_csv_slow(self):
         """填写数据到csv文件"""
@@ -490,7 +505,8 @@ class Recorder(BaseRecorder):
         lines_count = len(lines)
         header = self._header[None]
 
-        rewrite_header = False
+        rewrite = False
+        method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
         for i in self._data:
             coord, cur_data = i
             row, col = get_usable_coord_int(coord, lines_count, len(lines[0]) if lines_count else 1)
@@ -502,24 +518,10 @@ class Recorder(BaseRecorder):
                     lines.append([])
                     lines_count += 1
                 row_num = r - 1
-                lines[row_num], rewrite_header = self._header[None].make_change_list(lines[row_num],
-                                                                                     data, col,
-                                                                                     self._auto_new_header,
-                                                                                     rewrite_header, 'csv')
+                lines[row_num], rewrite = self._header[None].__getattribute__(method)(lines[row_num], data, col,
+                                                                                      'csv', rewrite)
 
-                # if isinstance(data, dict):
-                #     data = header.make_num_dict(data, 'csv')
-                #     raw_data = {c: v for c, v in enumerate(lines[row_num], 1)}
-                #     raw_data = {**raw_data, **data}
-                #     lines[row_num] = [raw_data[c] for c in range(1, max(raw_data) + 1)]
-                #
-                # else:
-                #     # 若列数不够，填充空列
-                #     lines[row_num].extend([''] * (col - len(lines[row_num]) + len(data) - 1))
-                #     for k, j in enumerate(data):  # 填充数据
-                #         lines[row_num][col + k - 1] = process_content_str(j)
-
-        if rewrite_header:
+        if rewrite:
             for _ in range(self._header_row - lines_count):  # 若行数不够，填充行数
                 lines.append([])
             lines[self._header_row - 1] = list(header.num_key.values())
@@ -882,23 +884,26 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
         recorder._header[None] = Header(header)
 
 
-def data2ws_no_style(ws, header, row, col, data, not_new, max_row):
+def data2ws_no_style(ws, header, row, col, data, not_new, max_row, rewrite_method, rewrite):
     for r, curr_data in enumerate(data, row):
         if isinstance(curr_data, dict):
-            for c, val in header.make_num_dict(curr_data, 'xlsx').items():
+            curr_data, rewrite, header_len = header.__getattribute__(rewrite_method)(curr_data, 'xlsx', rewrite)
+            for c, val in curr_data.items():
                 ws.cell(r, c, value=val)
         else:
             for key, j in enumerate(curr_data):
                 ws.cell(r, col + key, value=process_content_xlsx(j))
+    return rewrite
 
 
-def data2ws_has_style(ws, header, row, col, data, not_new, max_row):
+def data2ws_has_style(ws, header, row, col, data, not_new, max_row, rewrite_method, rewrite):
     if not_new:  # 非新行
         styles = []
         for r, curr_data in enumerate(data, row):
             if isinstance(curr_data, dict):
                 style = []
-                for c, val in header.make_num_dict(curr_data, 'xlsx').items():
+                curr_data, rewrite, header_len = header.__getattribute__(rewrite_method)(curr_data, 'xlsx', rewrite)
+                for c, val in curr_data.items():
                     ws.cell(r, c, value=val)
                     style.append(c)
                 styles.append(style)
@@ -910,9 +915,11 @@ def data2ws_has_style(ws, header, row, col, data, not_new, max_row):
             copy_some_row_style(ws, row, styles)
 
     else:  # 新行，复制整行样式
-        data2ws_no_style(ws, header, row, col, data, not_new, max_row)
+        data2ws_no_style(ws, header, row, col, data, not_new, max_row, rewrite_method, rewrite)
         if row > 0 and max_row >= row - 1:
             copy_full_row_style(ws, row, data)
+
+    return rewrite
 
 
 def set_link_to_ws(ws, data, empty, recorder):
@@ -963,7 +970,7 @@ def set_style_to_ws(ws, data, empty, recorder, header):
             none_style = NoneStyle()
             coord = parse_coord(coord, recorder.data_col)
             row, col = get_usable_coord(coord, max_row, ws)
-            for h, s in header.make_num_dict(data[1][1], None).items():
+            for h, s in header.make_num_dict(data[1][1], None)[0].items():
                 if not s:
                     s = none_style
                 s.to_cell(ws.cell(row, header[h]), replace=mode)
