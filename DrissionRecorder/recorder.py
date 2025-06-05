@@ -10,7 +10,7 @@ from .setter import RecorderSetter, set_csv_header
 from .cell_style import CellStyleCopier, CellStyle, NoneStyle
 from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str,
                     fix_openpyxl_bug, get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord, do_nothing,
-                    data_to_list_or_dict, get_usable_coord, get_usable_coord_int, is_sigal_data, is_2D_data)
+                    get_usable_coord, get_usable_coord_int)
 
 
 class Recorder(BaseRecorder):
@@ -101,21 +101,7 @@ class Recorder(BaseRecorder):
         self._methods['add_data'](data=data, coord=coord, table=table)
 
     def _add_data_fast(self, **args):
-        da = args['data']
-        if not isinstance(da, (list, tuple, dict)):
-            da = (da,)
-
-        if not da:
-            da = ([],)
-            self._data_count += 1
-
-        elif isinstance(da, dict) or (isinstance(da, (list, tuple)) and not isinstance(da[0], (list, tuple, dict))):
-            da = [self._handle_data_method(self, da)]
-            self._data_count += 1
-
-        else:  # 二维数组
-            da = [self._handle_data_method(self, d) for d in da]
-            self._data_count += len(da)
+        data = self._handle_data(args['data'])
 
         if self._type == 'xlsx':
             table = args['table']
@@ -123,10 +109,10 @@ class Recorder(BaseRecorder):
                 table = self._table
             elif table is True:
                 table = None
-            self._data.setdefault(table, []).extend(da)
+            self._data.setdefault(table, []).extend(data)
 
         elif self._type:
-            self._data.extend(da)
+            self._data.extend(data)
 
         else:
             raise RuntimeError('请设置文件路径。')
@@ -138,11 +124,9 @@ class Recorder(BaseRecorder):
         while self._pause_add:  # 等待其它线程写入结束
             sleep(.02)
 
-        da = args['data']
+        data = args['data']
         coord = args['coord']
         table = args['table']
-        if not isinstance(da, (list, tuple)):
-            da = (da,)
 
         to = self._data
         if coord in ('cover_style', 'replace_style', 'set_width', 'set_height'):
@@ -151,16 +135,7 @@ class Recorder(BaseRecorder):
 
         elif coord not in ('set_link', 'set_img'):
             coord = parse_coord(coord, self.data_col)
-            if not da:
-                da = ([],)
-                self._data_count += 1
-            # 一维数组
-            elif isinstance(da, dict) or (isinstance(da, (list, tuple)) and not isinstance(da[0], (list, tuple, dict))):
-                da = (data_to_list_or_dict(self, da),)
-                self._data_count += 1
-            else:  # 二维数组
-                da = [self._handle_data_method(self, d) for d in da]
-                self._data_count += len(da)
+            data = self._handle_data(data)
 
         else:
             self._data_count += 1
@@ -168,12 +143,12 @@ class Recorder(BaseRecorder):
         if self._type == 'xlsx':
             if table is None:
                 table = self._table
-            elif isinstance(table, bool):
+            elif table is True:
                 table = None
-            to.setdefault(table, []).append((coord, da))
+            to.setdefault(table, []).append((coord, data))
 
         elif self._type:
-            to.append((coord, da))
+            to.append((coord, data))
 
         else:
             raise RuntimeError('请设置文件路径。')
@@ -611,7 +586,7 @@ def new_sheet_fast(recorder, ws, data, first_wrote):
             ws.cell(row=recorder._header_row, column=c, value=h)
 
     elif (recorder._header_row > 0 and (data and (isinstance(data[0], dict) or (
-            data[0] and isinstance(data[0], (list, tuple, set)) and isinstance(data[0][0], dict))))):
+            data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], dict))))):
         # 第一个数据是dict，设置表头
         header = Header(list(data[0].keys()) if isinstance(data[0], dict) else list(data[0][0].keys()))
         recorder._header[ws.title] = header
@@ -651,7 +626,7 @@ def new_sheet_slow(recorder, ws, data, style, first_data_wrote, first_style_wrot
     if data:
         coord, data = data[0]
         if (recorder._header_row > 0 and ((isinstance(data, dict) or (
-                data and isinstance(data, (list, tuple, set)) and isinstance(data[0], dict))))):
+                data and isinstance(data, (list, tuple)) and isinstance(data[0], dict))))):
             # 第一个数据是dict，设置表头
             header = Header(data.keys() if isinstance(data, dict) else data[0].keys())
             recorder._header[ws.title] = header

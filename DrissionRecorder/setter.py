@@ -93,10 +93,10 @@ class BaseSetter(OriginalSetter):
         else:
             data = [data]
         setattr(self._recorder, '_before' if before else '_after', data)
-        if not (self._recorder._after or self._recorder._before):
-            self._recorder._handle_data_method = data_to_list_or_dict_simplify
-        else:
+        if self._recorder._after or self._recorder._before:
             self._recorder._handle_data_method = data_to_list_or_dict
+        else:
+            self._recorder._handle_data_method = data_to_list_or_dict_simplify
         return self
 
     def encoding(self, encoding):

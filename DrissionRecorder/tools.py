@@ -12,6 +12,19 @@ from openpyxl.workbook import Workbook
 from .cell_style import CellStyle
 
 
+def is_sigal_data(data):
+    """判断数据是否独立数据"""
+    return not isinstance(data, Iterable) or isinstance(data, str)
+
+
+def is_1D_data(data):
+    """判断传入数据是否一维数据"""
+    if isinstance(data, dict):
+        return True
+    for i in data:
+        return is_sigal_data(i)
+
+
 def remove_end_Nones(in_list):
     """去除列表后面所有None
     :param in_list: 要处理的list
@@ -352,20 +365,29 @@ class RowData(dict):
             raise RuntimeError(f'header中无{item}项。\nheader：{self.header.values()}')
         return self.get(ite, self.None_val)
 
-    def val(self, key, is_col=True, coord=False):
+    def val(self, key, is_header=False, coord=False):
         """当前行获取指定列的值
         :param key: 为int时表示列序号，为str时表示列号或header key
-        :param is_col: 为str时是header key还是列号
+        :param is_header: 为str时是header key还是列号
         :param coord: 为True时返回结果带坐标
         :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
         """
         if isinstance(key, str):
-            key = BaseHeader._KEY_NUM.get(key.upper(), key) if is_col else self.header[key]
+            key = self.header[key] if is_header else BaseHeader._KEY_NUM.get(key.upper())
         if isinstance(key, int) and key > 0:
             val = self[key]
         else:
             raise ValueError('key只能传入str或大于0的int。')
         return ((self.row, key), val) if coord else val
+
+    def col(self, key, num=False):
+        """获取指定表头项数据所在列
+        :param key: 表头项
+        :param num: 为True时返回列序号，否则返回列号
+        :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
+        """
+        key = self.header[key]
+        return key if num else self.header.num_key[key]
 
 
 def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
@@ -634,69 +656,32 @@ def data_to_list_or_dict_simplify(recorder, data):
     :param data: 要处理的数据
     :return: 转变成列表或字典形式的数据
     """
-    if data is None:
-        data = tuple()
-    elif not isinstance(data, (list, tuple, dict)):
-        data = (data,)
-    return data
+    return data if isinstance(data, (dict, list, tuple)) else list(data)
 
 
 def data_to_list_or_dict(recorder, data):
-    """将传入的数据转换为列表或字典形式，添加前后列数据
+    """将传入的一维数据转换为列表或字典形式，添加前后列数据
     :param recorder: BaseRecorder对象
     :param data: 要处理的数据
     :return: 转变成列表或字典形式的数据
     """
-    if data is None:
-        data = tuple()
-    elif not isinstance(data, (list, tuple, dict)):
-        data = (data,)
-    if not (recorder._before or recorder._after):
+    if isinstance(data, dict):
+        if isinstance(recorder.before, dict):
+            data = {**recorder.before, **data}
+        if isinstance(recorder.after, dict):
+            data = {**data, **recorder.after}
         return data
 
-    if isinstance(data, (list, tuple)):
+    else:
         return_list = []
         for i in (recorder.before, data, recorder.after):
             if isinstance(i, dict):
                 return_list.extend(list(i.values()))
-            elif i is None:
+            elif not i:
                 pass
-            elif isinstance(i, list):
-                return_list.extend(i)
-            elif isinstance(i, tuple):
-                return_list.extend(list(i))
             else:
-                return_list.extend([str(i)])
-
+                return_list.extend(list(i))
         return return_list
-
-    elif isinstance(data, dict):
-        if not recorder.before:
-            pass
-        elif isinstance(recorder.before, dict):
-            data = {**recorder.before, **data}
-        elif isinstance(recorder.before, (list, tuple)):
-            data1 = list(recorder.before)
-            data1.extend(data.values())
-            data = data1
-
-        if not recorder.after:
-            return data
-
-        elif isinstance(data, dict):
-            if isinstance(recorder.after, dict):
-                data = {**data, **recorder.after}
-            elif isinstance(recorder.after, (list, tuple)):
-                data = list(data)
-                data.extend(recorder.after)
-
-        elif isinstance(data, list):
-            if isinstance(recorder.after, dict):
-                data.extend(recorder.after.values())
-            elif isinstance(recorder.after, (list, tuple)):
-                data.extend(recorder.after)
-
-        return data
 
 
 def _set_style(height, styles, ws, row):
@@ -715,7 +700,6 @@ def _set_style(height, styles, ws, row):
 
 def get_csv(recorder):
     recorder._file_exists = True
-    Path(recorder.path).parent.mkdir(parents=True, exist_ok=True)
     return (open(recorder.path, 'a+', newline='', encoding=recorder.encoding),
             not (recorder._file_exists or Path(recorder.path).exists()))
 
@@ -797,15 +781,3 @@ def get_key_cols(cols, header, is_header):
         return res
     else:
         raise TypeError('col值只能是int或str。')
-
-
-def is_sigal_data(data):
-    """判断数据是否独立数据"""
-    return not isinstance(data, Iterable) or isinstance(data, str)
-
-
-def is_2D_data(data):
-    """判断传入数据是否二维数据"""
-    pass
-    # return (isinstance(data, Iterable) and not isinstance(data, (str, dict)) and data and isinstance(data, Iterable)
-    #         and isinstance(data[0], Iterable) and not isinstance(data[0], (str, dict)))
