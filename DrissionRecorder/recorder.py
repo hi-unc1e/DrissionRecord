@@ -331,6 +331,7 @@ class Recorder(BaseRecorder):
         """记录数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
+        rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
         for table, data in self._data.items():
             _row_styles = None
             _row_height = None
@@ -363,18 +364,10 @@ class Recorder(BaseRecorder):
             if first_wrote:
                 data = data[1:]
 
-            if self._auto_new_header:
-                rewrite = False
-                for i in data:
-                    i, rewrite = header.make_insert_list_rewrite(i, 'xlsx', rewrite)
-                    ws.append(i)
-                if rewrite:
-                    for c in range(1, ws.max_column + 1):
-                        ws.cell(self._header_row, c, value=header[c])
-
-            else:
-                for i in data:
-                    ws.append(header.make_insert_list(i, 'xlsx'))
+            rewrite = data2ws_no_style(ws, header, ws.max_row+1, 1, data, False, 1, rewrite_method, False)
+            if rewrite:
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(self._header_row, c, value=header[c])
 
             if self._follow_styles:
                 for r in range(begin_row, ws.max_row + 1):
@@ -864,10 +857,10 @@ def data2ws_no_style(ws, header, row, col, data, not_new, max_row, rewrite_metho
         if isinstance(curr_data, dict):
             curr_data, rewrite, header_len = header.__getattribute__(rewrite_method)(curr_data, 'xlsx', rewrite)
             for c, val in curr_data.items():
-                ws.cell(r, c, value=val)
+                ws.cell(r, c, value=process_content_xlsx(val))
         else:
-            for key, j in enumerate(curr_data):
-                ws.cell(r, col + key, value=process_content_xlsx(j))
+            for key, val in enumerate(curr_data):
+                ws.cell(r, col + key, value=process_content_xlsx(val))
     return rewrite
 
 
@@ -879,12 +872,12 @@ def data2ws_has_style(ws, header, row, col, data, not_new, max_row, rewrite_meth
                 style = []
                 curr_data, rewrite, header_len = header.__getattribute__(rewrite_method)(curr_data, 'xlsx', rewrite)
                 for c, val in curr_data.items():
-                    ws.cell(r, c, value=val)
+                    ws.cell(r, c, value=process_content_xlsx(val))
                     style.append(c)
                 styles.append(style)
             else:
-                for key, j in enumerate(curr_data):
-                    ws.cell(r, col + key, value=process_content_xlsx(j))
+                for key, val in enumerate(curr_data):
+                    ws.cell(r, col + key, value=process_content_xlsx(val))
                 styles.append(range(col, len(curr_data) + col))
         if row > 0 and max_row >= row - 1:
             copy_some_row_style(ws, row, styles)
