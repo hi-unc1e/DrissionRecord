@@ -6,19 +6,16 @@ from re import search, sub, match
 
 from openpyxl.cell import Cell, ReadOnlyCell
 from openpyxl.reader.excel import load_workbook
-from openpyxl.utils import column_index_from_string
 from openpyxl.workbook import Workbook
 
 from .cell_style import CellStyle
 
 
 def is_sigal_data(data):
-    """判断数据是否独立数据"""
     return not isinstance(data, Iterable) or isinstance(data, str)
 
 
 def is_1D_data(data):
-    """判断传入数据是否一维数据"""
     if isinstance(data, dict):
         return True
     for i in data:
@@ -26,9 +23,6 @@ def is_1D_data(data):
 
 
 def remove_end_Nones(in_list):
-    """去除列表后面所有None
-    :param in_list: 要处理的list
-    """
     h = []
     flag = True
     for i in in_list[::-1]:
@@ -53,10 +47,6 @@ def _get_column_letter(col_idx):
 
 
 def process_content_xlsx(content):
-    """处理单个单元格要写入的数据
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
     if isinstance(content, (str, int, float, type(None))):
         data = content
     elif isinstance(content, (Cell, ReadOnlyCell)):
@@ -71,10 +61,6 @@ def process_content_xlsx(content):
 
 
 def process_content_json(content):
-    """处理单个单元格要写入的数据
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
     if isinstance(content, (str, int, float, type(None))):
         return content
     elif isinstance(content, (Cell, ReadOnlyCell)):
@@ -84,10 +70,6 @@ def process_content_json(content):
 
 
 def process_content_str(content):
-    """处理单个单元格要写入的数据，以str格式输出
-    :param content: 未处理的数据内容
-    :return: 处理后的数据
-    """
     if isinstance(content, str):
         return content
     elif content is None:
@@ -157,35 +139,18 @@ class Header(BaseHeader):
         return self.num_key.items()
 
     def make_row_data(self, row, row_values, None_val=None):
-        """
-        :param row: 行号
-        :param row_values: {列序号: 值}
-        :param None_val: 空值是None还是''
-        :return: RowData对象
-        """
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_list(self, data, file_type):
-        """生成写入文件list格式的新行数据
-        :param data: 待处理行数据
-        :param file_type: 文件类型，用于选择处理方法
-        :return: 处理后的行数据
-        """
+    def make_insert_list(self, data, file_type, rewrite):
         if isinstance(data, dict):
             data = self.make_num_dict(data, file_type)[0]
             data = [data.get(i, None) for i in range(1, max(max(data), len(self.num_key)) + 1)]
         else:
             data = [self._CONTENT_FUNCS[file_type](v) for v in data]
-        return data
+        return data, False
 
     def make_insert_list_rewrite(self, data, file_type, rewrite):
-        """生产写入文件list格式的新行数据
-        :param data: 待处理行数据
-        :param rewrite: 是否需要重写表头
-        :param file_type: 文件类型，用于选择处理方法
-        :return: (处理后的行数据, 是否重写表头)
-        """
         if isinstance(data, dict):
             data, rewrite, header_len = self.make_num_dict_rewrite(data, file_type, rewrite)
             data = [data.get(i, None) for i in range(1, max(max(data), header_len) + 1)]
@@ -194,13 +159,6 @@ class Header(BaseHeader):
         return data, rewrite
 
     def make_change_list(self, line_data, data, col, file_type, rewrite):
-        """生产写入文件list格式的原有行数据
-        :param line_data: 原有行数据
-        :param data: 待处理行数据
-        :param col: 要写入的列
-        :param file_type: 文件类型，用于选择处理方法
-        :return: (处理后的行数据, 是否重写表头)
-        """
         if isinstance(data, dict):
             data = self.make_num_dict(data, file_type)[0]
             raw_data = {c: v for c, v in enumerate(line_data, 1)}
@@ -213,14 +171,6 @@ class Header(BaseHeader):
         return line_data, False
 
     def make_change_list_rewrite(self, line_data, data, col, file_type, rewrite):
-        """生产写入文件list格式的原有行数据
-        :param line_data: 原有行数据
-        :param data: 待处理行数据
-        :param col: 要写入的列
-        :param rewrite: 是否需要重写表头
-        :param file_type: 文件类型，用于选择处理方法
-        :return: (处理后的行数据, 是否重写表头)
-        """
         if isinstance(data, dict):
             data, rewrite, header_len = self.make_num_dict_rewrite(data, file_type, rewrite)
             raw_data = {c: v for c, v in enumerate(line_data, 1)}
@@ -258,19 +208,10 @@ class Header(BaseHeader):
         return val, rewrite, header_len
 
     def get_key(self, num):
-        """返回指定列序号对应的header key，如为None返回列序号
-        :param num: 列序号
-        :return: 表头值或列序号
-        """
         key = self[num]
         return num if key is None else key
 
     def get_num(self, col, is_header=True):
-        """获取某列序号
-        :param col: 列号、列名、表头值
-        :param is_header: 当col为str时，是header的key还是列名
-        :return: 列号int
-        """
         if isinstance(col, int) and col > 0:
             return col
         elif isinstance(col, str):
@@ -309,11 +250,6 @@ class ZeroHeader(Header):
         return
 
     def get_num(self, col, is_header=True):
-        """获取某列序号
-        :param col: 列号、列名、表头值
-        :param is_header: 不起实际作用
-        :return: 列号int
-        """
         if isinstance(col, int) and col > 0:
             return col
         elif isinstance(col, str):
@@ -321,25 +257,14 @@ class ZeroHeader(Header):
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
-    def make_insert_list(self, data, file_type):
-        """生产写入文件list格式的行数据
-        :param data: 待处理行数据
-        :param file_type: 文件类型，用于选择处理方法
-        :return: 处理后的行数据
-        """
+    def make_insert_list(self, data, file_type, rewrite):
         if isinstance(data, dict):
             val = self.make_num_dict(data, file_type)[0]
             data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
-        return data
+        return data, False
 
     def make_insert_list_rewrite(self, data, file_type, rewrite):
-        """生产写入文件list格式的行数据
-        :param data: 待处理行数据
-        :param file_type: 文件类型，用于选择处理方法
-        :param rewrite: 没有实际用处
-        :return: (处理后的行数据, 是否重写表头)
-        """
-        return self.make_insert_list(data, file_type), False
+        return self.make_insert_list(data, file_type, rewrite)
 
     def make_num_dict_rewrite(self, *keys):
         data, file_type, rewrite = keys
@@ -366,14 +291,8 @@ class RowData(dict):
         return self.get(ite, self.None_val)
 
     def val(self, key, is_header=False, coord=False):
-        """当前行获取指定列的值
-        :param key: 为int时表示列序号，为str时表示列号或header key
-        :param is_header: 为str时是header key还是列号
-        :param coord: 为True时返回结果带坐标
-        :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
-        """
         if isinstance(key, str):
-            key = self.header[key] if is_header else BaseHeader._KEY_NUM.get(key.upper())
+            key = self.header[key] if is_header else ZeroHeader()._KEY_NUM.get(key.upper())
         if isinstance(key, int) and key > 0:
             val = self[key]
         else:
@@ -381,23 +300,11 @@ class RowData(dict):
         return ((self.row, key), val) if coord else val
 
     def col(self, key, num=False):
-        """获取指定表头项数据所在列
-        :param key: 表头项
-        :param num: 为True时返回列序号，否则返回列号
-        :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
-        """
         key = self.header[key]
         return key if num else self.header.num_key[key]
 
 
 def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
-    """补全csv文件，使其每行列数一样多，用于pandas读取时避免出错
-    :param path: 要处理的文件路径
-    :param encoding: 文件编码
-    :param delimiter: 分隔符
-    :param quotechar: 引用符
-    :return: None
-    """
     with open(path, 'r', encoding=encoding) as f:
         reader = csv_reader(f, delimiter=delimiter, quotechar=quotechar)
         lines = list(reader)
@@ -420,12 +327,6 @@ def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
 
 
 def get_usable_path(path, is_file=True, parents=True):
-    """检查文件或文件夹是否有重名，并返回可以使用的路径
-    :param path: 文件或文件夹路径
-    :param is_file: 目标是文件还是文件夹
-    :param parents: 是否创建目标路径
-    :return: 可用的路径，Path对象
-    """
     path = Path(path)
     parent = path.parent
     if parents:
@@ -452,10 +353,6 @@ def get_usable_path(path, is_file=True, parents=True):
 
 
 def make_valid_name(full_name):
-    """获取有效的文件名
-    :param full_name: 文件名
-    :return: 可用的文件名
-    """
     # ----------------去除前后空格----------------
     full_name = full_name.strip()
 
@@ -489,151 +386,117 @@ def make_valid_name(full_name):
 
 
 def get_long(txt):
-    """返回字符串中字符个数（一个汉字是2个字符）
-    :param txt: 字符串
-    :return: 字符个数
-    """
     txt_len = len(txt)
     return int((len(txt.encode('utf-8')) - txt_len) / 2 + txt_len)
 
 
-def parse_coord(coord=None, data_col=None):
-    """添加数据，每次添加一行数据，可指定坐标、列号或行号
-    coord只输入数字（行号）时，列号为self.data_col值，如 3；
-    输入列号，或没有行号的坐标时，表示新增一行，列号为此时指定的，如'c'、',3'、(None, 3)、'None,3'；
-    输入 'newline' 时，表示新增一行，列号为self.data_col值；
-    输入行列坐标时，填写到该坐标，如'a3'、'3,1'、(3,1)、[3,1]；
-    输入的行号可以是负数（列号不可以），代表从下往上数，-1是倒数第一行，如'a-3'、(-3, 3)
-    :param coord: 坐标、列号、行号
-    :param data_col: 列号，用于只传入行号的情况
-    :return: 坐标tuple：(行, 列)，或(None, 列)
-    """
+def parse_coord(coord, data_col):
     return_coord = None
     if not coord:  # 新增一行，列为data_col
-        return_coord = None, data_col
+        return_coord = 0, data_col
 
-    elif isinstance(coord, (int, float)) and coord != 0:
-        return_coord = int(coord), data_col
+    elif isinstance(coord, int):
+        return_coord = coord, data_col
 
     elif isinstance(coord, str):
         coord = coord.replace(' ', '')
-
-        if coord.isalpha():  # 只输入列号，要新建一行
-            return_coord = None, column_index_from_string(coord)
-
-        elif ',' in coord:  # '3,1'形式
-            x, y = coord.split(',')
-            if x.lower() in ('', 'new', 'none', 'newline'):
-                x = None
-            elif x.isdigit():
+        if ',' in coord:  # '3,1'形式
+            x, y = coord.split(',', 1)
+            if x.lower() in ('0', '', 'new'):
+                x = 0
+            elif x.isdigit() or (x[0] == '-' and x[1:].isdigit()):
                 x = int(x)
             else:
                 raise ValueError('行格式不正确。')
 
-            if y.isdigit():
+            if y.lower() in ('0', '', 'new'):
+                y = 0
+            elif y.isdigit() or (y[0] == '-' and y[1:].isdigit()):
                 y = int(y)
             elif y.isalpha():
-                y = column_index_from_string(y)
+                y = ZeroHeader()._KEY_NUM.get(y.upper(), 1)
             else:
                 raise TypeError('列格式不正确。')
 
             return_coord = x, y
 
-        else:  # 'A3'或'3A'形式
+        elif coord.isalpha():  # 只输入列号，要新建一行
+            return_coord = 0, ZeroHeader()._KEY_NUM.get(coord.upper(), 1)
+
+        elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
+            return_coord = 0, int(coord)
+
+        else:  # 'A3' 或 '3A' 形式
             m = match(r'^[$]?([A-Za-z]{1,3})[$]?(-?\d+)$', coord)
             if m:
                 y, x = m.groups()
-                return_coord = int(x), column_index_from_string(y)
+                return_coord = int(x), ZeroHeader()._KEY_NUM.get(y.upper(), 1)
 
             else:
                 m = match(r'^[$]?(-?\d+)[$]?([A-Za-z]{1,3})$', coord)
                 if not m:
                     raise ValueError(f'{coord} 坐标格式不正确。')
                 x, y = m.groups()
-                return_coord = int(x), column_index_from_string(y)
+                return_coord = int(x), ZeroHeader()._KEY_NUM.get(y.upper(), 1)
 
-    elif isinstance(coord, (tuple, list)):
-        if len(coord) != 2:
-            raise ValueError('coord为list或tuple时长度必须为2。')
-
-        x = None
-        if coord[0] not in (None, 'new', 'newline'):
+    elif isinstance(coord, (tuple, list)) and len(coord) == 2:
+        if (isinstance(coord[0], int) or (isinstance(coord[0], str)
+                                          and (coord[0].isdigit() or (coord[0][0] == '-' and coord[0][1:].isdigit())))):
             x = int(coord[0])
+        elif coord[0] in (None, 'new'):
+            x = 0
+        else:
+            raise TypeError('行格式不正确。')
 
-        if isinstance(coord[1], int) or (isinstance(coord[1], str) and coord[1].isdigit()):
+        if (isinstance(coord[1], int) or (isinstance(coord[1], str)
+                                          and (coord[1].isdigit() or (coord[0][0] == '-' and coord[0][1:].isdigit())))):
             y = int(coord[1])
+        elif coord[1] in (None, 'new'):
+            y = 0
         elif isinstance(coord[1], str):
-            y = column_index_from_string(coord[1])
+            y = ZeroHeader()._KEY_NUM.get(coord[1].upper(), 1)
         else:
             raise TypeError('列格式不正确。')
 
         return_coord = x, y
 
-    if not return_coord or return_coord[0] == 0 or return_coord[1] == 0:
+    if not return_coord:
         raise ValueError(f'{return_coord} 坐标格式不正确。')
     return return_coord
 
 
 def ok_list_xlsx(data_list):
-    """处理列表中数据使其符合保存规范
-    :param data_list: 数据列表
-    :return: 处理后的列表
-    """
     if isinstance(data_list, (dict, Header)):
         data_list = data_list.values()
     return [process_content_xlsx(i) for i in data_list]
 
 
 def ok_list_str(data_list):
-    """处理列表中数据使其符合保存规范，所有数据都是str格式
-    :param data_list: 数据列表
-    :return: 处理后的列表
-    """
     if isinstance(data_list, (dict, Header)):
         data_list = data_list.values()
     return [process_content_str(i) for i in data_list]
 
 
 def ok_list_db(data_list):
-    """处理列表中数据使其符合保存规范
-    :param data_list: 数据列表
-    :return: 处理后的列表
-    """
     if isinstance(data_list, (dict, Header)):
         data_list = data_list.values()
     return [process_content_json(i) for i in data_list]
 
 
-def get_usable_coord_int(coord, max_row, max_col):
-    """返回真正写入文件的坐标
-    :param coord: 已初步格式化的坐标，如(1, 2)、(None, 3)、(-3, -2)
-    :param max_row: 文件最大行
-    :param max_col: 文件最大列
-    :return: 真正写入文件的坐标，tuple格式
-    """
-    row, col = coord
-    if col < 0:
+def get_real_col(col, max_col):
+    if col <= 0:
         col = max_col + col + 1
-        if col < 1:
-            raise ValueError(f'列号不能小于1。当前：{col}')
+    return 1 if col < 1 else col
 
-    if row is None:
-        row = max_row + 1
-    elif row < 0:
+
+def get_real_coord(coord, max_row, max_col):
+    row, col = coord
+    if row <= 0:
         row = max_row + row + 1
-        if row < 1:
-            raise ValueError(f'行号不能小于1。当前：{row}')
-
-    return row, col
+    return 1 if row < 1 else row, get_real_col(col, max_col)
 
 
 def get_usable_coord(coord, max_row, ws):
-    """返回真正写入文件的坐标
-    :param coord: 已初步格式化的坐标，如(1, 2)、(None, 3)、(-3, -2)
-    :param max_row: 文件最大行
-    :param ws: Worksheet对象
-    :return: 真正写入文件的坐标，tuple格式
-    """
     row, col = coord
     if col < 0:
         col = ws.max_column + col + 1
@@ -651,20 +514,10 @@ def get_usable_coord(coord, max_row, ws):
 
 
 def data_to_list_or_dict_simplify(recorder, data):
-    """将传入的数据转换为列表或字典形式，不添加前后列数据
-    :param recorder: BaseRecorder对象
-    :param data: 要处理的数据
-    :return: 转变成列表或字典形式的数据
-    """
     return data if isinstance(data, (dict, list, tuple)) else list(data)
 
 
 def data_to_list_or_dict(recorder, data):
-    """将传入的一维数据转换为列表或字典形式，添加前后列数据
-    :param recorder: BaseRecorder对象
-    :param data: 要处理的数据
-    :return: 转变成列表或字典形式的数据
-    """
     if isinstance(data, dict):
         if isinstance(recorder.before, dict):
             data = {**recorder.before, **data}
@@ -719,7 +572,7 @@ def get_ws(wb, table, tables, new_file):
     new_sheet = new_file
     if table is None:
         ws = wb.active
-        if ws.max_row == 1 and ws.max_column == 1 and not ws.cell(row=1, column=1).value:
+        if ws.max_row == 1 and ws.max_column == 1 and ws.cell(row=1, column=1).value is None:
             new_sheet = True
 
     elif table in tables:
@@ -742,17 +595,6 @@ def get_ws(wb, table, tables, new_file):
     return ws, new_sheet
 
 
-def fix_openpyxl_bug(recorder, wb, ws, table):
-    """尝试解决openpyxl的bug"""
-    cell = ws.cell(1, 1)
-    if cell.value is None:
-        cell.value = ''
-    wb.save(recorder.path)
-    wb.close()
-    wb = load_workbook(recorder.path)
-    return wb, wb[table] if table else wb.active
-
-
 def get_tables(path):
     wb = load_workbook(path)
     tables = wb.sheetnames
@@ -761,12 +603,6 @@ def get_tables(path):
 
 
 def get_key_cols(cols, header, is_header):
-    """获取作为关键字的列，可以是多列
-    :param cols: 列号或列名，或它们组成的list或tuple
-    :param header: Header格式
-    :param is_header: cols中的str表示header还是列名
-    :return: 列序号列表
-    """
     if cols is True:
         return True
     elif isinstance(cols, (int, str)):

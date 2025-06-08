@@ -2,7 +2,6 @@
 from pathlib import Path
 
 from openpyxl.reader.excel import load_workbook
-from openpyxl.utils import column_index_from_string
 from openpyxl.workbook import Workbook
 
 from .cell_style import CellStyle
@@ -243,15 +242,17 @@ class RecorderSetter(BaseSetter):
 
     def data_col(self, col):
         """设置用于填充数据的列
-        :param col: 列号或列名
+        :param col: 列号或列名，None表示header后面新列
         :return: 设置对象自己
         """
-        if isinstance(col, int) and col > 0:
+        if isinstance(col, int):
             self._recorder.data_col = col
         elif isinstance(col, str):
-            self._recorder.data_col = column_index_from_string(col)
+            self._recorder.data_col = ZeroHeader()._KEY_NUM.get(col.upper(), 1)
+        elif col is None:
+            self._recorder.data_col = 0
         else:
-            raise TypeError('col值只能是int或str，且必须大于0。')
+            raise TypeError('col值只能是int、str或None。')
         return self
 
     def link_style(self, style=True):

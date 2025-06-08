@@ -5,8 +5,7 @@ from threading import Lock
 from time import sleep
 
 from .setter import OriginalSetter, BaseSetter
-from .tools import (get_usable_path, make_valid_name, get_tables, data_to_list_or_dict_simplify,
-                    is_sigal_data, is_1D_data)
+from .tools import get_usable_path, make_valid_name, get_tables, data_to_list_or_dict_simplify
 
 
 class OriginalRecorder(object):
@@ -221,19 +220,3 @@ class BaseRecorder(OriginalRecorder):
     @abstractmethod
     def _record(self):
         pass
-
-    def _handle_data(self, data):
-        if is_sigal_data(data):
-            data = (self._handle_data_method(self, (data,)),)
-            self._data_count += 1
-        elif not data:
-            data = (self._handle_data_method(self, tuple()),)
-            self._data_count += 1
-        elif is_1D_data(data):
-            data = [self._handle_data_method(self, data)]
-            self._data_count += 1
-        else:  # 二维数组
-            data = [self._handle_data_method(self, (d,)) if is_sigal_data(d)
-                    else self._handle_data_method(self, d) for d in data]
-            self._data_count += len(data)
-        return data

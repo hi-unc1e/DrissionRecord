@@ -20,7 +20,6 @@ from .tools import Header, RowData
 class Recorder(BaseRecorder):
     _data: Union[dict, list] = ...
     data: Union[dict, list] = ...
-    _style_data: dict = ...
     _set: RecorderSetter = ...
     _row_height: Optional[float] = ...
     _follow_styles: bool = ...
@@ -34,79 +33,187 @@ class Recorder(BaseRecorder):
     data_col: int = ...
     _link_style: Optional[CellStyle] = ...
 
-    def __init__(self, path: Union[str, Path] = None, cache_size: int = 1000): ...
+    def __init__(self, path: Union[str, Path] = None, cache_size: int = 1000):
+        """用于缓存并记录数据，可在达到一定数量时自动记录，以降低文件读写次数，减少开销
+        :param path: 保存的文件路径
+        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
+        """
+        ...
 
     def _set_methods(self, file_type: str) -> None: ...
 
     @property
-    def set(self) -> RecorderSetter: ...
+    def set(self) -> RecorderSetter:
+        """返回用于设置属性的对象"""
+        ...
 
     @property
-    def delimiter(self) -> str: ...
+    def delimiter(self) -> str:
+        """返回csv文件分隔符"""
+        ...
 
     @property
-    def quote_char(self) -> str: ...
+    def quote_char(self) -> str:
+        """返回csv文件引用符"""
+        ...
 
     @property
-    def header(self) -> Header: ...
+    def header(self) -> Header:
+        """返回表头，只支持csv和xlsx格式"""
+        ...
 
     def add_data(self, data: Any,
-                 coord: Union[list, Tuple[Union[None, int, str], Union[int, str]], str, int] = 'newline',
-                 table: Union[str, bool] = None) -> None: ...
+                 coord: Union[list, Tuple[Union[None, int, str], Union[None, int, str]], str, int] = None,
+                 table: Union[str, bool] = None) -> None:
+        """添加数据，可一次添加多条数据
+        :param data: 插入的数据，任意格式，可以为二维数据
+        :param coord: 要添加数据的坐标，可输入行号、列号或行列坐标，当格式不是xlsx或csv时无效，eg.'a3'、1、[3, 1]、'c'、'-3'
+        :param table: 要写入的数据表，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
+        :return: None
+        """
+        ...
 
-    def _add_data_fast(self, **args) -> None: ...
+    def _add_data_fast(self, *args) -> None: ...
 
-    def _add_data_slow(self, **args) -> None: ...
+    def _add_data_slow(self, *args) -> None: ...
 
     def set_link(self,
                  coord: Union[int, str, tuple, list],
                  link: Union[str, dict],
                  content: Union[None, int, str, float] = None,
-                 table: Union[str, bool] = None) -> None: ...
+                 table: Union[str, bool] = None) -> None:
+        """为单元格设置超链接
+        :param coord: 单元格坐标
+        :param link: 超链接，为None时删除链接
+        :param content: 单元格内容
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def set_img(self,
                 coord: Union[int, str, tuple, list],
                 img_path: Union[None, str, Path, dict],
                 width: float = None,
                 height: float = None,
-                table: Union[str, bool] = None) -> None: ...
+                table: Union[str, bool] = None) -> None:
+        """向单元格设置图片
+        :param coord: 单元格坐标
+        :param img_path: 图片路径
+        :param width: 图片宽
+        :param height: 图片高
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def set_style(self,
                   coord: Union[int, str, tuple, list],
                   style: Union[CellStyle, dict],
                   replace: bool = True,
-                  table: Union[str, bool] = None) -> None: ...
+                  table: Union[str, bool] = None) -> None:
+        """为单元格设置样式，可批量设置范围内的单元格
+        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
+        :param style: CellStyle对象，为None则清除单元格样式
+        :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def set_row_height(self, row: Union[int, str], height: float,
-                       table: Union[str, bool] = None) -> None: ...
+                       table: Union[str, bool] = None) -> None:
+        """设置行高，可设置连续多行
+        :param row: 行号，可传入范围，如'1:4'
+        :param height: 行高
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def set_col_width(self, col: Union[int, str], width: float,
-                      table: Union[str, bool] = None) -> None: ...
+                      table: Union[str, bool] = None) -> None:
+        """设置列宽，可设置连续多列
+        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
+        :param width: 列宽
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def _set_link(self,
                   coord: Union[int, str, tuple, list],
                   link: Union[str, dict],
                   content: Union[None, int, str, float] = None,
-                  table: Union[str, bool] = None) -> None: ...
+                  table: Union[str, bool] = None) -> None:
+        """为单元格设置超链接
+        :param coord: 单元格坐标
+        :param link: 超链接，为None时删除链接
+        :param content: 单元格内容
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def _set_img(self,
                  coord: Union[int, str, tuple, list],
                  img_path: Union[None, str, Path, dict],
                  width: float = None,
                  height: float = None,
-                 table: Union[str, bool] = None) -> None: ...
+                 table: Union[str, bool] = None) -> None:
+        """向单元格设置图片
+        :param coord: 单元格坐标
+        :param img_path: 图片路径
+        :param width: 图片宽
+        :param height: 图片高
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def _set_style(self,
                    coord: Union[int, str, tuple, list],
                    style: Union[CellStyle, dict],
                    replace: bool = True,
-                   table: Union[str, bool] = None) -> None: ...
+                   table: Union[str, bool] = None) -> None:
+        """为单元格设置样式，可批量设置范围内的单元格
+        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
+        :param style: CellStyle对象，为None则清除单元格样式
+        :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def _set_row_height(self, row: Union[int, str], height: float,
-                        table: Union[str, bool] = None) -> None: ...
+                        table: Union[str, bool] = None) -> None:
+        """设置行高，可设置连续多行
+        :param row: 行号，可传入范围，如'1:4'
+        :param height: 行高
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
 
     def _set_col_width(self, col: Union[int, str], width: float,
-                       table: Union[str, bool] = None) -> None: ...
+                       table: Union[str, bool] = None) -> None:
+        """设置列宽，可设置连续多列
+        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
+        :param width: 列宽
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :return: None
+        """
+        ...
+
+    def _add(self, data: List[dict], table: Optional[str], to_slow: bool, num: int) -> None:
+        """为单元格设置样式，可批量设置范围内的单元格
+        :param data: 数据，[dict, ...]格式
+        :param table: 表格名称，None为活动表格
+        :param to_slow: 是否转到slow模式
+        :param num: 增加的数据量
+        :return: None
+        """
+        ...
 
     def rows(self,
              key_cols: Union[str, int, list, tuple, bool] = True,
@@ -115,39 +222,83 @@ class Recorder(BaseRecorder):
              signs: Any = None,
              deny_sign: bool = False,
              count: int = None,
-             begin_row: Optional[int] = None) -> List[RowData]: ...
+             begin_row: Optional[int] = None) -> List[RowData]:
+        """返回符合条件的行数据，可指定只要某些列
+        :param key_cols: 作为关键字的列，可以是多列，为True获取所有列
+        :param sign_col: 用于筛选数据的列，为True获取所有行
+        :param is_header: key_cols和sign_col是str时，表示header值还是列名
+        :param signs: 按这个值判断是否已填数据，可用list, tuple, set设置多个
+        :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+        :param count: 获取多少条数据，为None获取所有
+        :param begin_row: 数据开始的行，None表示header_row后面一行
+        :return: RowData对象
+        """
+        ...
 
-    def clear(self) -> None: ...
+    def clear(self) -> None:
+        """清除已保存的数据"""
+        ...
 
-    def _record(self) -> None: ...
+    def _handle_data(self, data: Any, coord: tuple) -> Tuple[List[dict], int]:
+        """把数据处理成存储格式
+        :param data: 要处理的数据
+        :param coord: 单元格坐标
+        :return: (处理后的数据, 数据长度)
+        """
+        ...
 
-    def _to_fast_mode(self) -> None: ...
+    def _record(self) -> None:
+        """记录数据"""
+        ...
 
-    def _to_slow_mode(self) -> None: ...
+    def _fast_mode(self) -> None:
+        """切换到fast模式"""
+        ...
 
-    def _to_xlsx_fast(self) -> None: ...
+    def _slow_mode(self) -> None:
+        """切换到slow模式"""
+        ...
 
-    def _to_csv_fast(self) -> None: ...
+    def _to_xlsx_fast(self) -> None:
+        """fast模式填写数据到xlsx文件"""
+        ...
 
-    def _to_xlsx_slow(self) -> None: ...
+    def _to_csv_fast(self) -> None:
+        """fast模式填写数据到csv文件"""
+        ...
 
-    def _to_csv_slow(self) -> None: ...
+    def _to_xlsx_slow(self) -> None:
+        """slow模式填写数据到xlsx文件"""
+        ...
 
-    def _to_txt(self) -> None: ...
+    def _to_csv_slow(self) -> None:
+        """slow模式填写数据到csv文件"""
+        ...
 
-    def _to_jsonl(self) -> None: ...
+    def _to_txt(self) -> None:
+        """记录数据到txt文件"""
+        ...
 
-    def _to_json(self) -> None: ...
+    def _to_jsonl(self) -> None:
+        """记录数据到jsonl文件"""
+        ...
+
+    def _to_json(self) -> None:
+        """记录数据到json文件"""
+        ...
 
 
 def get_header(recorder: Recorder, ws: Worksheet = None) -> Header: ...
 
 
-def new_sheet_fast(recorder: Recorder, ws: Worksheet, data: list, first_wrote: bool) -> bool: ...
+def handle_new_sheet(recorder: Recorder, ws: Worksheet, data: Union[tuple, list, None]) -> int:
+    """已有表头信息时向新表写入表头"""
+    ...
 
 
-def new_sheet_slow(recorder: Recorder, ws: Worksheet, data: list,
-                   style: list, first_data_wrote: bool, first_style_wrote: bool): ...
+def get_first_dict(data: list) -> dict:
+    """判断数据集第一条是否dict，如果第一条是二维数据，判断其第一条是否dict，是则返回它"""
+    ...
 
 
 def get_xlsx_rows(recorder: Recorder,
@@ -185,6 +336,10 @@ def handle_csv_rows_without_count(lines, begin_row: Optional[int], sign_col, sig
 def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None: ...
 
 
+def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
+                rewrite: bool) -> bool: ...
+
+
 def data2ws_no_style(ws: Worksheet, header: Header, row: int, col: int, data: list, not_new: bool,
                      max_row: int, rewrite: bool) -> bool: ...
 
@@ -207,16 +362,24 @@ def set_link_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder) -
 def set_img_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder) -> None: ...
 
 
-def set_style_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder, header: Header) -> None: ...
+def set_style_to_ws(ws: Worksheet, data: list, empty: bool, recorder: Recorder, header: Header) -> None:
+    """批量设置单元格格式到sheet"""
+    ...
 
 
 def set_style(height: float, styles: List[CellStyle], ws: Worksheet, row: int) -> None: ...
 
 
-def copy_some_row_style(ws: Worksheet, row: int, styles: List[Iterable]) -> None: ...
+def copy_some_row_style(ws: Worksheet, row: int, styles: List[Iterable]) -> None:
+    """复制上一行指定列样式到后续行中"""
+    ...
 
 
-def copy_full_row_style(ws: Worksheet, row: int, cur_data: list) -> None: ...
+def copy_full_row_style(ws: Worksheet, row: int, cur_data: list) -> None:
+    """复制上一行整行样式到新行中"""
+    ...
 
 
-def copy_part_row_style(ws: Worksheet, row: int, cur_data: list, col: int) -> None: ...
+def copy_part_row_style(ws: Worksheet, row: int, cur_data: list, col: int) -> None:
+    """复制上一行局部（连续）样式到后续行中"""
+    ...

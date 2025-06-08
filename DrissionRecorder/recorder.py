@@ -6,28 +6,23 @@ from time import sleep
 from openpyxl.reader.excel import load_workbook
 
 from .base import BaseRecorder
-from .setter import RecorderSetter, set_csv_header
 from .cell_style import CellStyleCopier, CellStyle, NoneStyle
-from .tools import (ok_list_xlsx, ok_list_str, process_content_xlsx, process_content_json, process_content_str,
-                    fix_openpyxl_bug, get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord, do_nothing,
-                    get_usable_coord, get_usable_coord_int)
+from .setter import RecorderSetter, set_csv_header
+from .tools import (ok_list_str, process_content_xlsx, process_content_json, process_content_str,
+                    get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord, do_nothing,
+                    get_usable_coord, get_real_coord, is_sigal_data, is_1D_data, get_real_col)
 
 
 class Recorder(BaseRecorder):
     _SUPPORTS = ('csv', 'xlsx', 'txt', 'jsonl', 'json')
 
     def __init__(self, path=None, cache_size=1000):
-        """用于缓存并记录数据，可在达到一定数量时自动记录，以降低文件读写次数，减少开销
-        :param path: 保存的文件路径
-        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
-        """
         self._header = {None: None}
         self._methods = {'xlsx': self._to_xlsx_fast,
                          'csv': self._to_csv_fast,
                          'txt': self._to_txt,
                          'jsonl': self._to_jsonl,
                          'json': self._to_json,
-                         'add_data': self._add_data_fast,
                          'set_img': do_nothing,
                          'set_link': do_nothing,
                          'set_style': do_nothing,
@@ -35,7 +30,6 @@ class Recorder(BaseRecorder):
                          'set_col_width': do_nothing,
                          }
         super().__init__(path=path, cache_size=cache_size)
-        self._style_data = {}
         self._delimiter = ','  # csv文件分隔符
         self._quote_char = '"'  # csv文件引用符
         self._follow_styles = False
@@ -49,7 +43,6 @@ class Recorder(BaseRecorder):
     def _set_methods(self, file_type):
         method = f'_to_{file_type}_fast' if hasattr(self, f'_to_{file_type}_fast') else f'_to_{file_type}'
         self._methods[file_type] = getattr(self, method)
-        self._methods['add_data'] = self._add_data_fast
         if file_type == 'xlsx':
             self._methods['set_img'] = self._set_img
             self._methods['set_link'] = self._set_link
@@ -65,212 +58,92 @@ class Recorder(BaseRecorder):
 
     @property
     def set(self):
-        """返回用于设置属性的对象"""
         if self._setter is None:
             self._setter = RecorderSetter(self)
         return self._setter
 
     @property
     def delimiter(self):
-        """返回csv文件分隔符"""
         return self._delimiter
 
     @property
     def quote_char(self):
-        """返回csv文件引用符"""
         return self._quote_char
 
     @property
     def header(self):
-        """返回表头，只支持csv和xlsx格式"""
         if self.type not in ('csv', 'xlsx'):
             raise TypeError('header属性只支持csv和xlsx类型文件。')
         return get_header(self)
 
     def add_data(self, data, coord=None, table=None):
-        """添加数据，可一次添加多条数据
-        :param data: 插入的数据，任意格式
-        :param coord: 要添加数据的坐标，可输入行号、列号或行列坐标，当格式不是xlsx或csv时无效，eg.'a3'、1、[3, 1]、'c'
-        :param table: 要写入的数据表，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
-        :return: None
-        """
+        coord = parse_coord(coord, self.data_col)
+        data, data_len = self._handle_data(data, coord)
+        self._add(data, table,
+                  True if self._fast and coord[0] and self._type in ('csv', 'xlsx') else False,
+                  data_len)
+
+    def _set_link(self, coord, link, content=None, table=None):
+        self._add([{'type': 'set_link', 'link': link, 'content': content,
+                    'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
+
+    def _set_img(self, coord, img_path, width=None, height=None, table=None):
+        self._add([{'type': 'set_link', 'img_path': img_path, 'width': width, 'height': height,
+                    'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
+
+    def _set_style(self, coord, style, replace=True, table=None):
+        self._add([{'type': 'replace_style' if replace else 'cover_style',
+                    'style': style, 'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
+
+    def _set_row_height(self, row, height, table=None):
+        if not row:
+            raise ValueError('row不能为0或None。')
+        self._add([{'type': 'set_height', 'row': row, 'height': height}], table, self._fast, 1)
+
+    def _set_col_width(self, col, width, table=None):
+        if not col:
+            raise ValueError('col不能为0或None。')
+        self._add([{'type': 'set_width', 'col': col, 'width': width}], table, self._fast, 1)
+
+    def _add(self, data, table, to_slow, num):
         while self._pause_add:  # 等待其它线程写入结束
             sleep(.02)
-        if self._fast and coord and self._type in ('csv', 'xlsx'):
-            self._to_slow_mode()
-        self._methods['add_data'](data=data, coord=coord, table=table)
 
-    def _add_data_fast(self, **args):
-        data = self._handle_data(args['data'])
+        if to_slow:
+            self._slow_mode()
 
         if self._type == 'xlsx':
-            table = args['table']
             if table is None:
                 table = self._table
             elif table is True:
                 table = None
             self._data.setdefault(table, []).extend(data)
-
         elif self._type:
             self._data.extend(data)
-
         else:
             raise RuntimeError('请设置文件路径。')
 
-        if 0 < self.cache_size <= self._data_count:
-            self.record()
-
-    def _add_data_slow(self, **args):
-        while self._pause_add:  # 等待其它线程写入结束
-            sleep(.02)
-
-        data = args['data']
-        coord = args['coord']
-        table = args['table']
-
-        to = self._data
-        if coord in ('cover_style', 'replace_style', 'set_width', 'set_height'):
-            to = self._style_data
-            self._data_count += 1
-
-        elif coord not in ('set_link', 'set_img'):
-            coord = parse_coord(coord, self.data_col)
-            data = self._handle_data(data)
-
-        else:
-            self._data_count += 1
-
-        if self._type == 'xlsx':
-            if table is None:
-                table = self._table
-            elif table is True:
-                table = None
-            to.setdefault(table, []).append((coord, data))
-
-        elif self._type:
-            to.append((coord, data))
-
-        else:
-            raise RuntimeError('请设置文件路径。')
-
+        self._data_count += num
         if 0 < self.cache_size <= self._data_count:
             self.record()
 
     def set_link(self, coord, link, content=None, table=None):
-        """为单元格设置超链接
-        :param coord: 单元格坐标
-        :param link: 超链接，为None时删除链接
-        :param content: 单元格内容
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
         self._methods['set_link'](coord, link, content, table)
 
     def set_img(self, coord, img_path, width=None, height=None, table=None):
-        """
-        :param coord: 单元格坐标
-        :param img_path: 图片路径
-        :param width: 图片宽
-        :param height: 图片高
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
         self._methods['set_img'](coord, img_path, width, height, table)
 
     def set_style(self, coord, style, replace=True, table=None):
-        """为单元格设置样式，可批量设置范围内的单元格
-        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
-        :param style: CellStyle对象，为None则清除单元格样式
-        :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
         self._methods['set_style'](coord, style, replace, table)
 
     def set_row_height(self, row, height, table=None):
-        """设置行高，可设置连续多行
-        :param row: 行号，可传入范围，如'1:4'
-        :param height: 行高
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
         self._methods['set_row_height'](row, height, table)
 
     def set_col_width(self, col, width, table=None):
-        """设置列宽，可设置连续多列
-        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
-        :param width: 列宽
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
         self._methods['set_col_width'](col, width, table)
-
-    def _set_link(self, coord, link, content=None, table=None):
-        """为单元格设置超链接
-        :param coord: 单元格坐标
-        :param link: 超链接，为None时删除链接
-        :param content: 单元格内容
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
-        self.add_data((coord, link, content), 'set_link', table)
-
-    def _set_img(self, coord, img_path, width=None, height=None, table=None):
-        """
-        :param coord: 单元格坐标
-        :param img_path: 图片路径
-        :param width: 图片宽
-        :param height: 图片高
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
-        self.add_data((coord, str(img_path), width, height), 'set_img', table)
-
-    def _set_style(self, coord, style, replace=True, table=None):
-        """为单元格设置样式，可批量设置范围内的单元格
-        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
-        :param style: CellStyle对象，为None则清除单元格样式
-        :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
-        s = 'replace_style' if replace else 'cover_style'
-        self.add_data((coord, style), s, table)
-
-    def _set_row_height(self, row, height, table=None):
-        """设置行高，可设置连续多行
-        :param row: 行号，可传入范围，如'1:4'
-        :param height: 行高
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
-        if not row:
-            raise ValueError('row不能为0或None。')
-        self.add_data((row, height), 'set_height', table)
-
-    def _set_col_width(self, col, width, table=None):
-        """设置列宽，可设置连续多列
-        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
-        :param width: 列宽
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
-        :return: None
-        """
-        if not col:
-            raise ValueError('col不能为0或None。')
-        self.add_data((col, width), 'set_width', table)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,
              signs=None, deny_sign=False, count=None, begin_row=None):
-        """返回符合条件的行数据，可指定只要某些列
-        :param key_cols: 作为关键字的列，可以是多列，为True获取所有列
-        :param sign_col: 用于筛选数据的列，为True获取所有行
-        :param is_header: key_cols和sign_col是str时，表示header值还是列名
-        :param signs: 按这个值判断是否已填数据，可用list, tuple, set设置多个
-        :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
-        :param count: 获取多少条数据，为None获取所有
-        :param begin_row: 数据开始的行，None表示header_row后面一行
-        :return: RowData对象
-        """
         if not self._path or not Path(self._path).exists():
             raise RuntimeError('未指定文件路径或文件不存在。')
         if self.type == 'xlsx':
@@ -306,70 +179,85 @@ class Recorder(BaseRecorder):
 
     def clear(self):
         super().clear()
-        self._style_data.clear()
+
+    def _handle_data(self, data, coord):
+        if is_sigal_data(data):
+            data = [{'type': 'data', 'data': self._handle_data_method(self, (data,)), 'coord': coord}]
+            data_len = 1
+        elif not data:
+            data = [{'type': 'data', 'data': self._handle_data_method(self, tuple()), 'coord': coord}]
+            data_len = 1
+        elif is_1D_data(data):
+            data = [{'type': 'data', 'data': self._handle_data_method(self, data), 'coord': coord}]
+            data_len = 1
+        else:  # 二维数组
+            if not coord[0] and self._fast:
+                data = [{'type': 'data', 'coord': coord,
+                         'data': (self._handle_data_method(self, (d,)) if is_sigal_data(d)
+                                  else self._handle_data_method(self, d))}
+                        for d in data]
+                data_len = len(data)
+            else:
+                data = [self._handle_data_method(self, (d,)) if is_sigal_data(d)
+                        else self._handle_data_method(self, d) for d in data]
+                data = [{'type': '2Ddata', 'data': data, 'coord': coord}]
+                data_len = 1
+        return data, data_len
 
     def _record(self):
-        """记录数据"""
         self._methods[self.type]()
-        self._style_data = {}
         if not self._fast:
-            self._to_fast_mode()
+            self._fast_mode()
 
-    def _to_fast_mode(self):
+    def _fast_mode(self):
         self._methods['xlsx'] = self._to_xlsx_fast
         self._methods['csv'] = self._to_csv_fast
-        self._methods['add_data'] = self._add_data_fast
         self._fast = True
 
-    def _to_slow_mode(self):
+    def _slow_mode(self):
         self._methods['xlsx'] = self._to_xlsx_slow
         self._methods['csv'] = self._to_csv_slow
-        self._methods['add_data'] = self._add_data_slow
         self._fast = False
 
     def _to_xlsx_fast(self):
-        """记录数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
         rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
+
         for table, data in self._data.items():
             _row_styles = None
             _row_height = None
             ws, new_sheet = get_ws(wb, table, tables, new_file)
-            first_wrote = False
+            new_file = False
             if table is None and ws.title not in self._header:
                 self._header[ws.title] = self._header[None]
 
-            # ==============处理表头和样式==============
             if new_sheet:
-                first_wrote = new_sheet_fast(self, ws, data, first_wrote)
+                begin_row = handle_new_sheet(self, ws, data)
             elif self._header.get(ws.title, None) is None:
                 self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
+                begin_row = ws.max_row
+            else:
+                begin_row = ws.max_row
 
             header = self._header[ws.title]
-            begin_row = None  # 开始写入数据的行
-            if self._follow_styles:
-                begin_row = ws.max_row
+            if self._follow_styles and begin_row > 0:
                 _row_styles = [CellStyleCopier(i) for i in ws[begin_row]]
                 _row_height = ws.row_dimensions[begin_row].height
-                begin_row += 1
-            elif self._styles or self._row_height:
-                begin_row = ws.max_row + 1
 
-            if new_file:
-                wb, ws = fix_openpyxl_bug(self, wb, ws, ws.title)
-                new_file = False
+            begin_row += 1
+            rewrite = False
+            for row, d in enumerate(data, begin_row):
+                rewrite = line2ws(ws, header, row,
+                                  (get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
+                                   if d['coord'][1] < 1 else d['coord'][1]),
+                                  d['data'], rewrite_method, rewrite)
 
-            # ==============开始写入数据==============
-            if first_wrote:
-                data = data[1:]
-
-            rewrite = data2ws_no_style(ws, header, ws.max_row+1, 1, data, False, 1, rewrite_method, False)
             if rewrite:
                 for c in range(1, ws.max_column + 1):
                     ws.cell(self._header_row, c, value=header[c])
 
-            if self._follow_styles:
+            if self._follow_styles and begin_row > 0:
                 for r in range(begin_row, ws.max_row + 1):
                     set_style(_row_height, _row_styles, ws, r)
 
@@ -390,80 +278,74 @@ class Recorder(BaseRecorder):
         wb.close()
 
     def _to_xlsx_slow(self):
-        """填写数据到xlsx文件"""
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
-
         method = data2ws_has_style if self._follow_styles else data2ws_no_style
         rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
-        for table in {}.fromkeys(list(self._data.keys()) + list(self._style_data.keys())):
+
+        for table, data in self._data.items():
             ws, new_sheet = get_ws(wb, table, tables, new_file)
-            first_data_wrote = False
-            first_style_wrote = False
+            new_file = False
             if table is None and ws.title not in self._header:
                 self._header[ws.title] = self._header[None]
 
             if new_sheet:
-                first_data_wrote, first_style_wrote = new_sheet_slow(self, ws, self._data.get(table, []),
-                                                                     self._style_data.get(table, []),
-                                                                     first_data_wrote, first_style_wrote)
+                begin_row = handle_new_sheet(self, ws, data)
             elif self._header.get(ws.title, None) is None:
                 self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
+                begin_row = ws.max_row
+            else:
+                begin_row = ws.max_row
 
             header = self._header[ws.title]
-            if new_file:
-                wb, ws = fix_openpyxl_bug(self, wb, ws, ws.title)
-                new_file = False
+            rewrite = False
+            # --------------- 这里继续 ----------------
+            if not begin_row and not self._data[table][0][0][0]:
+                rewrite = data2ws_no_style(ws, header, begin_row, 1, self._data[table][0], False, 1,
+                                           rewrite_method, False)
+                data = self._data[table][1:]
+            else:
+                data = self._data[table]
 
-            if self._data.get(table, None):
-                data = self._data[table][1:] if first_data_wrote else self._data[table]
-                rewrite = False
-                for cur_data in data:
-                    if cur_data[0] == 'set_link':
-                        set_link_to_ws(ws, cur_data[1], False, self)
-                    elif cur_data[0] == 'set_img':
-                        set_img_to_ws(ws, cur_data[1], False, self)
-                    else:
-                        max_row = ws.max_row
-                        row, col = get_usable_coord(cur_data[0], max_row, ws)
-                        not_new = cur_data[0][0]  # 是否添加到新行
-                        cur_data = cur_data[1] if isinstance(cur_data[1][0], (list, tuple, dict)) else (cur_data[1],)
-                        rewrite = method(ws, header, row, col, cur_data, not_new, max_row, rewrite_method, rewrite)
+            for cur_data in data:
+                if cur_data[0] == 'set_link':
+                    set_link_to_ws(ws, cur_data[1], False, self)
+                elif cur_data[0] == 'set_img':
+                    set_img_to_ws(ws, cur_data[1], False, self)
+                else:
+                    max_row = ws.max_row
+                    row, col = get_usable_coord(cur_data[0], max_row, ws)
+                    not_new = cur_data[0][0]  # 是否添加到新行
+                    cur_data = cur_data[1] if isinstance(cur_data[1][0], (list, tuple, dict)) else (cur_data[1],)
+                    rewrite = method(ws, header, row, col, cur_data, not_new, max_row, rewrite_method, rewrite)
 
-                if rewrite:
-                    for c in range(1, ws.max_column + 1):
-                        ws.cell(self._header_row, c, value=header[c])
-
-            if self._style_data.get(table, None):
-                style = self._style_data[table][1:] if first_style_wrote else self._style_data[table]
-                for cur_data in style:
-                    set_style_to_ws(ws, cur_data, False, self, header)
+            if rewrite:
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(self._header_row, c, value=header[c])
 
         wb.save(self.path)
         wb.close()
 
     def _to_csv_fast(self):
-        """记录数据到csv文件"""
         file, new_csv = get_csv(self)
         writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
         get_and_set_csv_header(self, new_csv, file, writer)
+        rewrite_method = 'make_insert_list_rewrite' if self._auto_new_header else 'make_insert_list'
 
-        if self._auto_new_header:
-            rewrite = False
-            for i in self._data:
-                i, rewrite = self._header[None].make_insert_list_rewrite(i, 'csv', rewrite)
-                writer.writerow(i)
-            file.close()
-            if rewrite:
-                set_csv_header(self, self._header[None], self._header_row)
+        rewrite = False
+        header = self._header[None]
+        for d in self._data:
+            i, rewrite = header.__getattribute__(rewrite_method)(d['data'], 'csv', rewrite)
+            if d['coord'][1] != 1:
+                col = get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
+                i = [None] * (col - 1) + i
+            writer.writerow(i)
+        file.close()
 
-        else:
-            for i in self._data:
-                writer.writerow(self._header[None].make_insert_list(i, 'csv'))
-            file.close()
+        if rewrite:
+            set_csv_header(self, self._header[None], self._header_row)
 
     def _to_csv_slow(self):
-        """填写数据到csv文件"""
         file, new_csv = get_csv(self)
         writer = csv_writer(file, delimiter=self.delimiter, quotechar=self.quote_char)
         get_and_set_csv_header(self, new_csv, file, writer)
@@ -476,22 +358,19 @@ class Recorder(BaseRecorder):
         rewrite = False
         method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
         for i in self._data:
-            coord, cur_data = i
-            row, col = get_usable_coord_int(coord, lines_count, len(lines[0]) if lines_count else 1)
-            if not isinstance(cur_data[0], (list, tuple, dict)):
-                cur_data = (cur_data,)
-
-            for r, data in enumerate(cur_data, row):
-                for _ in range(r - lines_count):  # 若行数不够，填充行数
-                    lines.append([])
-                    lines_count += 1
+            data = i['data'] if i['type'] == '2Ddata' else (i['data'],)
+            row, col = get_real_coord(i['coord'], lines_count, len(header) if self._header_row > 0 else 1)
+            for r, da in enumerate(data, row):
+                add_rows = r - lines_count
+                if add_rows > 0:  # 若行数不够，填充行数
+                    [lines.append([]) for _ in range(add_rows)]
+                    lines_count += add_rows
                 row_num = r - 1
-                lines[row_num], rewrite = self._header[None].__getattribute__(method)(lines[row_num], data, col,
+                lines[row_num], rewrite = self._header[None].__getattribute__(method)(lines[row_num], da, col,
                                                                                       'csv', rewrite)
 
         if rewrite:
-            for _ in range(self._header_row - lines_count):  # 若行数不够，填充行数
-                lines.append([])
+            [lines.append([]) for _ in range(self._header_row - lines_count)]  # 若行数不够，填充行数
             lines[self._header_row - 1] = list(header.num_key.values())
 
         file.close()
@@ -500,20 +379,17 @@ class Recorder(BaseRecorder):
         writer.writerows(lines)
 
     def _to_txt(self):
-        """记录数据到txt文件"""
         with open(self.path, 'a+', encoding=self.encoding) as f:
-            all_data = [' '.join(ok_list_str(i)) for i in self._data]
+            all_data = [' '.join(ok_list_str(i['data'])) for i in self._data]
             f.write('\n'.join(all_data) + '\n')
 
     def _to_jsonl(self):
-        """记录数据到jsonl文件"""
         from json import dumps
         with open(self.path, 'a+', encoding=self.encoding) as f:
-            all_data = [i if isinstance(i, str) else dumps(i) for i in self._data]
+            all_data = [i['data'] if isinstance(i['data'], str) else dumps(i['data']) for i in self._data]
             f.write('\n'.join(all_data) + '\n')
 
     def _to_json(self):
-        """记录数据到json文件"""
         from json import load, dump
         if self._file_exists or Path(self.path).exists():
             with open(self.path, 'r', encoding=self.encoding) as f:
@@ -522,6 +398,7 @@ class Recorder(BaseRecorder):
             json_data = []
 
         for i in self._data:
+            i = i['data']
             if isinstance(i, dict):
                 for d in i:
                     i[d] = process_content_json(i[d])
@@ -571,88 +448,41 @@ def get_header(recorder, ws=None):
         return recorder._header[None]
 
 
-def new_sheet_fast(recorder, ws, data, first_wrote):
-    """已有表头信息时向新表写入表头"""
-    need_set_style = (recorder._header_row,)
-    if recorder._header.get(ws.title, None) is not None and recorder._header_row > 0:
+def handle_new_sheet(recorder, ws, data):
+    if not recorder._header_row:
+        return 0
+
+    if recorder._header.get(ws.title, None) is not None:
         for c, h in recorder._header[ws.title].items():
             ws.cell(row=recorder._header_row, column=c, value=h)
-
-    elif (recorder._header_row > 0 and (data and (isinstance(data[0], dict) or (
-            data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], dict))))):
-        # 第一个数据是dict，设置表头
-        header = Header(list(data[0].keys()) if isinstance(data[0], dict) else list(data[0][0].keys()))
-        recorder._header[ws.title] = header
-        for c, h in header.items():
-            ws.cell(row=recorder._header_row, column=c, value=h)
-
-    elif data and recorder._header_row in (1, 0):  # 未设置表头，将第一个数据写到第一行
-        first_wrote = True
-        if data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], (list, tuple)):
-            for r, d in enumerate(data[0], 1):
-                for c, v in enumerate(ok_list_xlsx(d), 1):
-                    ws.cell(row=r, column=c, value=v)
-            need_set_style = tuple(range(1, len(data[0]) + 1))
-        else:  # 一维数据
-            for c, v in enumerate(ok_list_xlsx(data[0]), 1):
-                ws.cell(row=1, column=c, value=v)
-        recorder._header[ws.title] = Header()
+        begin_row = recorder._header_row
 
     else:
-        recorder._header[ws.title] = Header()
-
-    if recorder._styles or recorder._row_height:
-        for r in need_set_style:
-            set_style(recorder._row_height, recorder._styles, ws, r)
-
-    return first_wrote
-
-
-def new_sheet_slow(recorder, ws, data, style, first_data_wrote, first_style_wrote):
-    """已有表头信息时向新表写入表头"""
-    if recorder._header.get(ws.title, None) and recorder._header_row > 0:
-        for c, h in recorder._header[ws.title].items():
-            ws.cell(row=recorder._header_row, column=c, value=h)
-        return first_data_wrote, first_style_wrote
-
-    recorder._header[ws.title] = Header()
-    if data:
-        coord, data = data[0]
-        if (recorder._header_row > 0 and ((isinstance(data, dict) or (
-                data and isinstance(data, (list, tuple)) and isinstance(data[0], dict))))):
-            # 第一个数据是dict，设置表头
-            header = Header(data.keys() if isinstance(data, dict) else data[0].keys())
+        data = get_first_dict(data)
+        if data:
+            header = Header([h for h in recorder.data.keys() if isinstance(h, str)])
             recorder._header[ws.title] = header
             for c, h in header.items():
                 ws.cell(row=recorder._header_row, column=c, value=h)
+            begin_row = recorder._header_row
 
-        elif (isinstance(coord, tuple) and coord[0]) or (isinstance(coord, str) and data[0][0]):
-            # 有指定坐标
-            return first_data_wrote, first_style_wrote
+        else:
+            recorder._header[ws.title] = Header()
+            begin_row = 0
 
-        elif recorder._header_row in (1, 0):  # 未设置表头，将第一个数据写到第一行
-            first_data_wrote = True
-            if isinstance(coord, tuple):
-                if data and isinstance(data, (list, tuple)) and isinstance(data[0], (list, tuple)):
-                    for r, d in enumerate(data, 1):
-                        for c, v in enumerate(ok_list_xlsx(d), 1):
-                            ws.cell(row=r, column=c, value=v)
-                else:  # 一维数据
-                    for c, v in enumerate(ok_list_xlsx(data), 1):
-                        ws.cell(row=1, column=c, value=v)
+    if begin_row and (recorder._styles or recorder._row_height):
+        set_style(recorder._row_height, recorder._styles, ws, recorder._header_row)
 
-            elif coord == 'set_link':
-                set_link_to_ws(ws, data, True, recorder)
+    return begin_row
 
-            elif coord == 'set_img':
-                set_img_to_ws(ws, data, True, recorder)
 
-        return first_data_wrote, first_style_wrote
-
-    if style and isinstance(style[0][1][0], tuple) and not style[0][1][0][0]:
-        first_style_wrote = True
-        set_style_to_ws(ws, style[0], True, recorder, recorder._header.get(ws.title))
-    return first_data_wrote, first_style_wrote
+def get_first_dict(data):
+    if not data:
+        return False
+    elif data[0]['type'] == 'data' and isinstance(data[0]['data'], dict):
+        return data[0]['data']
+    elif data[0]['type'] == '2Ddata' and data[0]['data'] and isinstance(data[0]['data'][0], dict):
+        return data[0]['data'][0]['data']
 
 
 def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sign, count, ws):
@@ -822,24 +652,25 @@ def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, k
 
 
 def get_and_set_csv_header(recorder, new_csv, file, writer):
-    if new_csv:
-        if recorder._header[None] is None and recorder.data:
-            if isinstance(recorder.data[0], dict):
-                recorder._header[None] = Header([h for h in recorder.data[0].keys() if isinstance(h, str)])
-            elif isinstance(recorder.data[0], (list, tuple)) and recorder.data[0] and isinstance(
-                    recorder.data[0][0], dict):
-                recorder._header[None] = Header([h for h in recorder.data[0][0].keys() if isinstance(h, str)])
-            else:
-                recorder._header[None] = Header()
-        else:
-            recorder._header[None] = Header()
+    if not recorder._header_row:
+        return
 
+    if new_csv:
         if recorder._header[None]:
             for _ in range(recorder._header_row - 1):
                 writer.writerow([])
             writer.writerow(ok_list_str(recorder._header[None]))
 
-    elif recorder._header[None] is None:
+        if recorder._header[None] is None and recorder.data:
+            data = get_first_dict(recorder._data)
+            if data:
+                recorder._header[None] = Header([h for h in recorder.data.keys() if isinstance(h, str)])
+            else:
+                recorder._header[None] = Header()
+        else:
+            recorder._header[None] = Header()
+
+    elif recorder._header[None] is None:  # 从文件读取表头
         file.seek(0)
         reader = csv_reader(file, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
         header = []
@@ -848,12 +679,28 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
                 header = next(reader)
         except StopIteration:
             pass
-        file.seek(2)
         recorder._header[None] = Header(header)
+        file.seek(2)
+
+
+def line2ws(ws, header, row, col, data, rewrite_method, rewrite):
+    if isinstance(data, dict):
+        data, rewrite, header_len = header.__getattribute__(rewrite_method)(data, 'xlsx', rewrite)
+        for c, val in data.items():
+            ws.cell(row, c, value=process_content_xlsx(val))
+    else:
+        if col < 0:
+            col = ws.max_column + col + 1
+            if col < 0:
+                col = 1
+        for key, val in enumerate(data):
+            ws.cell(row, col + key, value=process_content_xlsx(val))
+    return rewrite
 
 
 def data2ws_no_style(ws, header, row, col, data, not_new, max_row, rewrite_method, rewrite):
     for r, curr_data in enumerate(data, row):
+        curr_data = curr_data['data']
         if isinstance(curr_data, dict):
             curr_data, rewrite, header_len = header.__getattribute__(rewrite_method)(curr_data, 'xlsx', rewrite)
             for c, val in curr_data.items():
@@ -928,7 +775,6 @@ def set_img_to_ws(ws, data, empty, recorder):
 
 
 def set_style_to_ws(ws, data, empty, recorder, header):
-    """批量设置单元格格式到sheet"""
     if data[0] in ('replace_style', 'cover_style'):
         mode = data[0] == 'replace_style'
         coord = data[1][0]
@@ -994,7 +840,6 @@ def set_style(height, styles, ws, row):
 
 
 def copy_some_row_style(ws, row, styles):
-    """复制上一行指定列样式到后续行中"""
     _row_styles = [CellStyleCopier(c) for c in ws[row - 1]]
     for r, i in enumerate(styles, row):
         for c in i:
@@ -1003,7 +848,6 @@ def copy_some_row_style(ws, row, styles):
 
 
 def copy_full_row_style(ws, row, cur_data):
-    """复制上一行整行样式到新行中"""
     _row_styles = [CellStyleCopier(i) for i in ws[row - 1]]
     height = ws.row_dimensions[row - 1].height
     for r in range(row, len(cur_data) + 1):
@@ -1014,7 +858,6 @@ def copy_full_row_style(ws, row, cur_data):
 
 
 def copy_part_row_style(ws, row, cur_data, col):
-    """复制上一行局部（连续）样式到后续行中"""
     _row_styles = [CellStyleCopier(i) for i in ws[row - 1]]
     for r, i in enumerate(cur_data, row):
         for c in range(len(i)):
