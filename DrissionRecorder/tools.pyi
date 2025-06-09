@@ -264,18 +264,6 @@ def get_real_coord(coord: Union[tuple, list],
     ...
 
 
-def get_usable_coord(coord: Union[tuple, list],
-                     max_row: int,
-                     ws: Worksheet) -> Tuple[int, int]:
-    """返回真正写入文件的坐标
-    :param coord: 已初步格式化的坐标，如(1, 2)、(None, 3)、(-3, -2)
-    :param max_row: 文件最大行
-    :param ws: Worksheet对象
-    :return: 真正写入文件的坐标，tuple格式
-    """
-    ...
-
-
 def data_to_list_or_dict_simplify(recorder: BaseRecorder,
                                   data: Union[list, tuple, dict, None]) -> Union[list, dict]:
     """将传入的数据转换为列表或字典形式，不添加前后列数据

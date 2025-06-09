@@ -23,12 +23,18 @@ class Recorder(BaseRecorder):
                          'txt': self._to_txt,
                          'jsonl': self._to_jsonl,
                          'json': self._to_json,
-                         'set_img': do_nothing,
-                         'set_link': do_nothing,
-                         'set_style': do_nothing,
-                         'set_row_height': do_nothing,
-                         'set_col_width': do_nothing,
+                         'setImg': do_nothing,
+                         'setLink': do_nothing,
+                         'setStyle': do_nothing,
+                         'setHeight': do_nothing,
+                         'setWidth': do_nothing,
                          }
+        self._write_methods = {'setImg': img2ws,
+                               'setLink': link2ws,
+                               'setStyle': style2ws,
+                               'setHeight': height2ws,
+                               'setWidth': width2ws,
+                               'data': None}
         super().__init__(path=path, cache_size=cache_size)
         self._delimiter = ','  # csv文件分隔符
         self._quote_char = '"'  # csv文件引用符
@@ -44,17 +50,17 @@ class Recorder(BaseRecorder):
         method = f'_to_{file_type}_fast' if hasattr(self, f'_to_{file_type}_fast') else f'_to_{file_type}'
         self._methods[file_type] = getattr(self, method)
         if file_type == 'xlsx':
-            self._methods['set_img'] = self._set_img
-            self._methods['set_link'] = self._set_link
-            self._methods['set_style'] = self._set_style
-            self._methods['set_row_height'] = self._set_row_height
-            self._methods['set_col_width'] = self._set_col_width
+            self._methods['setImg'] = self._set_img
+            self._methods['setLink'] = self._set_link
+            self._methods['setStyle'] = self._set_style
+            self._methods['setHeight'] = self._set_row_height
+            self._methods['setWidth'] = self._set_col_width
         else:
-            self._methods['set_img'] = do_nothing
-            self._methods['set_link'] = do_nothing
-            self._methods['set_style'] = do_nothing
-            self._methods['set_row_height'] = do_nothing
-            self._methods['set_col_width'] = do_nothing
+            self._methods['setImg'] = do_nothing
+            self._methods['setLink'] = do_nothing
+            self._methods['setStyle'] = do_nothing
+            self._methods['setHeight'] = do_nothing
+            self._methods['setWidth'] = do_nothing
 
     @property
     def set(self):
@@ -84,26 +90,26 @@ class Recorder(BaseRecorder):
                   data_len)
 
     def _set_link(self, coord, link, content=None, table=None):
-        self._add([{'type': 'set_link', 'link': link, 'content': content,
+        self._add([{'type': 'setLink', 'link': link, 'content': content,
                     'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
 
     def _set_img(self, coord, img_path, width=None, height=None, table=None):
-        self._add([{'type': 'set_link', 'img_path': img_path, 'width': width, 'height': height,
+        self._add([{'type': 'setLink', 'imgPath': img_path, 'width': width, 'height': height,
                     'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
 
     def _set_style(self, coord, style, replace=True, table=None):
-        self._add([{'type': 'replace_style' if replace else 'cover_style',
+        self._add([{'type': 'style', 'mode': 'replace' if replace else 'cover',
                     'style': style, 'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
 
     def _set_row_height(self, row, height, table=None):
         if not row:
             raise ValueError('row不能为0或None。')
-        self._add([{'type': 'set_height', 'row': row, 'height': height}], table, self._fast, 1)
+        self._add([{'type': 'setHeight', 'row': row, 'height': height}], table, self._fast, 1)
 
     def _set_col_width(self, col, width, table=None):
         if not col:
             raise ValueError('col不能为0或None。')
-        self._add([{'type': 'set_width', 'col': col, 'width': width}], table, self._fast, 1)
+        self._add([{'type': 'setWidth', 'col': col, 'width': width}], table, self._fast, 1)
 
     def _add(self, data, table, to_slow, num):
         while self._pause_add:  # 等待其它线程写入结束
@@ -128,19 +134,19 @@ class Recorder(BaseRecorder):
             self.record()
 
     def set_link(self, coord, link, content=None, table=None):
-        self._methods['set_link'](coord, link, content, table)
+        self._methods['setLink'](coord, link, content, table)
 
     def set_img(self, coord, img_path, width=None, height=None, table=None):
-        self._methods['set_img'](coord, img_path, width, height, table)
+        self._methods['setImg'](coord, img_path, width, height, table)
 
     def set_style(self, coord, style, replace=True, table=None):
-        self._methods['set_style'](coord, style, replace, table)
+        self._methods['setStyle'](coord, style, replace, table)
 
     def set_row_height(self, row, height, table=None):
-        self._methods['set_row_height'](row, height, table)
+        self._methods['setHeight'](row, height, table)
 
     def set_col_width(self, col, width, table=None):
-        self._methods['set_col_width'](col, width, table)
+        self._methods['setWidth'](col, width, table)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,
              signs=None, deny_sign=False, count=None, begin_row=None):
@@ -289,28 +295,29 @@ class Recorder(BaseRecorder):
             if table is None and ws.title not in self._header:
                 self._header[ws.title] = self._header[None]
 
+            begin_row = True
             if new_sheet:
                 begin_row = handle_new_sheet(self, ws, data)
             elif self._header.get(ws.title, None) is None:
                 self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
-                begin_row = ws.max_row
-            else:
-                begin_row = ws.max_row
 
             header = self._header[ws.title]
             rewrite = False
             # --------------- 这里继续 ----------------
-            if not begin_row and not self._data[table][0][0][0]:
-                rewrite = data2ws_no_style(ws, header, begin_row, 1, self._data[table][0], False, 1,
-                                           rewrite_method, False)
-                data = self._data[table][1:]
-            else:
-                data = self._data[table]
+            if not begin_row and not data['coord'][0]:
+                pass
+                # rewrite = data2ws_no_style(ws, header, begin_row, 1, self._data[table][0], False, 1,
+                #                            rewrite_method, False)
+                # data = self._data[table][1:]
 
             for cur_data in data:
-                if cur_data[0] == 'set_link':
+                max_row = ws.max_row
+                coord = get_real_coord(cur_data['coord'], max_row, ws.max_column)
+                rewrite = self._write_methods[cur_data['type']](self, ws, data, coord, header)
+
+                if cur_data[0] == 'setLink':
                     set_link_to_ws(ws, cur_data[1], False, self)
-                elif cur_data[0] == 'set_img':
+                elif cur_data[0] == 'setImg':
                     set_img_to_ws(ws, cur_data[1], False, self)
                 else:
                     max_row = ws.max_row
@@ -737,30 +744,24 @@ def data2ws_has_style(ws, header, row, col, data, not_new, max_row, rewrite_meth
     return rewrite
 
 
-def set_link_to_ws(ws, data, empty, recorder):
-    max_row = 0 if empty else ws.max_row
-    coord = parse_coord(data[0], recorder.data_col)
-    row, col = get_usable_coord(coord, max_row, ws)
-    cell = ws.cell(row, col)
-    has_link = True if cell.hyperlink else False
-    cell.hyperlink = None if data[1] is None else process_content_str(data[1])
-    if data[2] is not None:
-        cell.value = process_content_xlsx(data[2])
-    if data[1]:
+def link2ws(recorder, ws, data, coord, header):
+    cell = ws.cell(*coord)
+    has_link = bool(cell.hyperlink)
+    cell.hyperlink = data['link']
+    if data['content'] is not None:
+        cell.value = process_content_xlsx(data['content'])
+    if data['link']:
         if recorder._link_style:
             recorder._link_style.to_cell(cell, replace=False)
     elif has_link:
         NoneStyle().to_cell(cell, replace=False)
 
 
-def set_img_to_ws(ws, data, empty, recorder):
-    max_row = 0 if empty else ws.max_row
-    coord, img_path, width, height = data
-    coord = parse_coord(coord, recorder.data_col)
-    row, col = get_usable_coord(coord, max_row, ws)
-
+def img2ws(recorder, ws, data, coord, header):
+    row, col = coord
     from openpyxl.drawing.image import Image
-    img = Image(img_path)
+    img = Image(data['imgPath'])
+    width, height = data['width'], data['height']
     if width and height:
         img.width = width
         img.height = height
@@ -774,65 +775,64 @@ def set_img_to_ws(ws, data, empty, recorder):
     ws.add_image(img, f'{Header._NUM_KEY[col]}{row}')
 
 
-def set_style_to_ws(ws, data, empty, recorder, header):
+def style2ws(recorder, ws, data, coord, header):
     if data[0] in ('replace_style', 'cover_style'):
-        mode = data[0] == 'replace_style'
-        coord = data[1][0]
-        max_row = 0 if empty else ws.max_row
+    mode = data[0] == 'replace_style'
+    coord = data[1][0]
+    max_row = 0 if empty else ws.max_row
 
-        if isinstance(data[1][1], dict):
-            none_style = NoneStyle()
-            coord = parse_coord(coord, recorder.data_col)
-            row, col = get_usable_coord(coord, max_row, ws)
-            for h, s in header.make_num_dict(data[1][1], None)[0].items():
-                if not s:
-                    s = none_style
-                s.to_cell(ws.cell(row, header[h]), replace=mode)
-            return
+    if isinstance(data[1][1], dict):
+        none_style = NoneStyle()
+        coord = parse_coord(coord, recorder.data_col)
+        row, col = get_usable_coord(coord, max_row, ws)
+        for h, s in header.make_num_dict(data[1][1], None)[0].items():
+            if not s:
+                s = none_style
+            s.to_cell(ws.cell(row, header[h]), replace=mode)
+        return
 
-        style = NoneStyle() if data[1][1] is None else data[1][1]
-        if isinstance(coord, int) or (isinstance(coord, str) and coord.isdigit()):
+    style = NoneStyle() if data[1][1] is None else data[1][1]
+    if isinstance(coord, int) or (isinstance(coord, str) and coord.isdigit()):
+        for c in ws[coord]:
+            style.to_cell(c, replace=mode)
+
+    elif isinstance(coord, str):
+        if ':' in coord:
+            for c in ws[coord]:
+                for cc in c:
+                    style.to_cell(cc, replace=mode)
+        elif coord.isdigit() or coord.isalpha():
             for c in ws[coord]:
                 style.to_cell(c, replace=mode)
 
-        elif isinstance(coord, str):
-            if ':' in coord:
-                for c in ws[coord]:
-                    for cc in c:
-                        style.to_cell(cc, replace=mode)
-            elif coord.isdigit() or coord.isalpha():
-                for c in ws[coord]:
-                    style.to_cell(c, replace=mode)
+    else:
+        coord = parse_coord(coord, recorder.data_col)
+        row, col = get_usable_coord(coord, max_row, ws)
+        style.to_cell(ws.cell(row, col), replace=mode)
 
-        else:
-            coord = parse_coord(coord, recorder.data_col)
-            row, col = get_usable_coord(coord, max_row, ws)
-            style.to_cell(ws.cell(row, col), replace=mode)
 
-    elif data[0] == 'set_width':
-        col, width = data[1]
-        if isinstance(col, int):
-            col = Header._NUM_KEY[col]
-        for c in col.split(':'):
-            if c.isdigit():
-                c = Header._NUM_KEY[int(c)]
-            ws.column_dimensions[c].width = width
+def width2ws(recorder, ws, data, coord, header):
+    col, width = data['col'], data['width']
+    if isinstance(col, int):
+        col = Header._NUM_KEY[col]
+    for c in col.split(':'):
+        if c.isdigit():
+            c = Header._NUM_KEY[int(c)]
+        ws.column_dimensions[c].width = width
 
-    elif data[0] == 'set_height':
-        max_row = 0 if empty else ws.max_row
-        row, height = data[1]
-        row = get_usable_coord((row, 1), max_row, ws)[0]
-        if isinstance(row, int):
-            ws.row_dimensions[row].height = height
-        elif isinstance(row, str):
-            for r in row.split(':'):
-                ws.row_dimensions[int(r)].height = height
+
+def height2ws(recorder, ws, data, coord, header):
+    row, height = data['row'], data['height']
+    if isinstance(row, int):
+        ws.row_dimensions[row].height = height
+    elif isinstance(row, str):
+        for r in row.split(':'):
+            ws.row_dimensions[int(r)].height = height
 
 
 def set_style(height, styles, ws, row):
     if height is not None:
         ws.row_dimensions[row].height = height
-
     if styles:
         for c, s in enumerate(styles, start=1):
             if s:

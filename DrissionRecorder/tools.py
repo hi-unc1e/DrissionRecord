@@ -496,23 +496,6 @@ def get_real_coord(coord, max_row, max_col):
     return 1 if row < 1 else row, get_real_col(col, max_col)
 
 
-def get_usable_coord(coord, max_row, ws):
-    row, col = coord
-    if col < 0:
-        col = ws.max_column + col + 1
-        if col < 1:
-            raise ValueError(f'列号不能小于1。当前：{col}')
-
-    if row is None:
-        row = max_row + 1
-    elif row < 0:
-        row = max_row + row + 1
-        if row < 1:
-            raise ValueError(f'行号不能小于1。当前：{row}')
-
-    return row, col
-
-
 def data_to_list_or_dict_simplify(recorder, data):
     return data if isinstance(data, (dict, list, tuple)) else list(data)
 
