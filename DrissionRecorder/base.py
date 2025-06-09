@@ -9,14 +9,9 @@ from .tools import get_usable_path, make_valid_name, get_tables, data_to_list_or
 
 
 class OriginalRecorder(object):
-    """记录器的基类"""
     _SUPPORTS = ('any',)
 
     def __init__(self, path=None, cache_size=1000):
-        """
-        :param path: 保存的文件路径
-        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
-        """
         self._data = []
         self._path = None
         self._type = None
@@ -36,38 +31,31 @@ class OriginalRecorder(object):
         self._cache = cache_size or 0
 
     def __del__(self):
-        """对象关闭时把剩下的数据写入文件"""
         self.record()
 
     @property
     def set(self):
-        """返回用于设置属性的对象"""
         if self._setter is None:
             self._setter = OriginalSetter(self)
         return self._setter
 
     @property
     def cache_size(self):
-        """返回缓存大小"""
         return self._cache
 
     @property
     def path(self):
-        """返回文件路径"""
         return self._path
 
     @property
     def type(self):
-        """返回文件类型"""
         return self._type
 
     @property
     def data(self):
-        """返回当前保存在缓存的数据"""
         return self._data
 
     def record(self):
-        """记录数据，返回文件路径"""
         if not self._data_count:
             return self._path
         if not self._path:
@@ -126,15 +114,10 @@ class OriginalRecorder(object):
         return self._path
 
     def clear(self):
-        """清空缓存中的数据"""
         self._data.clear()
         self._data_count = 0
 
     def backup(self, path='backup', name=None):
-        """把当前文件备份到指定路径
-        :param path: 文件夹路径
-        :param name: 保存的文件名，为None使用记录目标指定的文件名
-        """
         if not self._file_exists:
             return
 
@@ -161,14 +144,9 @@ class OriginalRecorder(object):
 
 
 class BaseRecorder(OriginalRecorder):
-    """Recorder和DBRecorder的父类"""
     _SUPPORTS = ('xlsx', 'csv')
 
     def __init__(self, path=None, cache_size=None):
-        """
-        :param path: 保存的文件路径
-        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
-        """
         super().__init__(path, cache_size)
         self._before = []
         self._after = []
@@ -179,29 +157,24 @@ class BaseRecorder(OriginalRecorder):
 
     @property
     def set(self):
-        """返回用于设置属性的对象"""
         if self._setter is None:
             self._setter = BaseSetter(self)
         return self._setter
 
     @property
     def before(self):
-        """返回当前before内容"""
         return self._before
 
     @property
     def after(self):
-        """返回当前after内容"""
         return self._after
 
     @property
     def table(self):
-        """返回默认表名"""
         return self._table
 
     @property
     def tables(self):
-        """返回默认表名"""
         if self._type != 'xlsx':
             raise TypeError('只有xlsx格式能使用tables属性。')
         if not self._path:
@@ -210,7 +183,6 @@ class BaseRecorder(OriginalRecorder):
 
     @property
     def encoding(self):
-        """返回编码格式"""
         return self._encoding
 
     @abstractmethod

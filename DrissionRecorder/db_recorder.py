@@ -12,11 +12,6 @@ class DBRecorder(BaseRecorder):
     _SUPPORTS = ('db',)
 
     def __init__(self, path=None, cache_size=1000, table=None):
-        """用于存储数据到sqlite的工具
-        :param path: 保存的文件路径
-        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
-        :param table: 默认表名
-        """
         self._conn = None
         self._cur = None
         super().__init__(None, cache_size)
@@ -26,14 +21,12 @@ class DBRecorder(BaseRecorder):
 
     @property
     def set(self):
-        """返回用于设置属性的对象"""
         if self._setter is None:
             self._setter = DBSetter(self)
         return self._setter
 
     @property
     def tables(self):
-        """返回所有表名"""
         self._connect()
         self._cur.execute("select name from sqlite_master where type='table'")
         tables = self._cur.fetchall()
@@ -41,11 +34,6 @@ class DBRecorder(BaseRecorder):
         return [i[0] for i in tables]
 
     def add_data(self, data, table=None):
-        """添加数据
-        :param data: 可以是一维或二维数据，dict格式可向对应列填写数据，其余格式按顺序从左到右填入各列
-        :param table: 数据要插入的表名称
-        :return: None
-        """
         while self._pause_add:  # 等待其它线程写入结束
             sleep(.02)
 
@@ -60,12 +48,6 @@ class DBRecorder(BaseRecorder):
             self.record()
 
     def run_sql(self, sql, single=True, commit=False):
-        """执行sql语句并返回结果
-        :param sql: sql语句
-        :param single: 是否只获取一个结果
-        :param commit: 是否提交到数据库
-        :return: 查找到的结果，没有结果时返回None
-        """
         self._connect()
         self._cur.execute(sql)
         r = self._cur.fetchone() if single else self._cur.fetchall()
@@ -75,13 +57,11 @@ class DBRecorder(BaseRecorder):
         return r
 
     def _connect(self):
-        """连接数据库"""
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = connect(self.path)
         self._cur = self._conn.cursor()
 
     def _close_connection(self):
-        """关闭数据库 """
         if self._conn is not None:
             try:
                 self._cur.close()
@@ -90,12 +70,6 @@ class DBRecorder(BaseRecorder):
                 pass
 
     def _to_database(self, data_list, table, tables):
-        """把数据批量写入指定数据表
-        :param data_list: 要写入的数据组成的列表
-        :param table: 要写入数据的数据表名称
-        :param tables: 数据库中数据表和列信息
-        :return: None
-        """
         if isinstance(data_list[0], dict):  # 检查是否要新增列
             keys = data_list[0].keys()
             for key in keys:
@@ -120,9 +94,7 @@ class DBRecorder(BaseRecorder):
         self._cur.executemany(sql, values)
 
     def _record(self):
-        """保存数据到sqlite"""
-        # 获取所有表名和列名
-        self._connect()
+        self._connect()  # 获取所有表名和列名
         self._cur.execute("select name from sqlite_master where type='table'")
         tables = {}
         for table in self._cur.fetchall():

@@ -10,19 +10,10 @@ class ByteRecorder(OriginalRecorder):
     __END = (0, 2)
 
     def __init__(self, path=None, cache_size=1000):
-        """用于记录字节数据的工具
-        :param path: 保存的文件路径
-        :param cache_size: 每接收多少条记录写入文件，0为不自动写入
-        """
         super().__init__(path, cache_size)
         self._type = 'byte'
 
     def add_data(self, data, seek=None):
-        """添加一段二进制数据
-        :param data: bytes类型数据
-        :param seek: 在文件中的位置，None表示最后
-        :return: None
-        """
         while self._pause_add:  # 等待其它线程写入结束
             sleep(.02)
 
@@ -38,7 +29,6 @@ class ByteRecorder(OriginalRecorder):
             self.record()
 
     def _record(self):
-        """记录数据到文件"""
         if not self._file_exists and not Path(self.path).exists():
             with open(self.path, 'w'):
                 pass
