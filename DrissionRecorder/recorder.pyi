@@ -7,7 +7,7 @@ _header格式：{表名: Header对象}
 from csv import writer as csv_writer
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Optional, Union, List, Dict, Tuple, Iterable
+from typing import Any, Optional, Union, List, Dict, Tuple
 
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -30,7 +30,7 @@ class Recorder(BaseRecorder):
     _header_row: int = ...
     _fast: bool = ...
     _methods: dict = ...
-    _write_methods: dict = ...
+    _slow_methods: dict = ...
     data_col: int = ...
     _link_style: Optional[CellStyle] = ...
 
@@ -108,14 +108,14 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_style(self,
+    def set_styles(self,
                   coord: Union[int, str, tuple, list],
-                  style: Union[CellStyle, dict],
+                  styles: Union[CellStyle, dict, list, tuple],
                   replace: bool = True,
                   table: Union[str, bool] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
-        :param style: CellStyle对象，为None则清除单元格样式
+        :param styles: CellStyle对象，为None则清除单元格样式
         :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
         :return: None
@@ -337,48 +337,13 @@ def handle_csv_rows_without_count(lines, begin_row: Optional[int], sign_col, sig
 def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None: ...
 
 
-def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
-            rewrite: bool) -> bool: ...
+def link2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int]) -> None: ...
 
 
-def data2ws_no_style(ws: Worksheet, header: Header, row: int, col: int, data: list, not_new: bool,
-                     max_row: int, rewrite: bool) -> bool: ...
+def img2ws(ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int]) -> None: ...
 
 
-def data2ws_has_style(ws: Worksheet, header: Header, row: int, col: int, data: list, not_new: bool,
-                      max_row: int, rewrite: bool) -> bool: ...
+def width2ws(ws: Worksheet, data: Union[dict, list]) -> None: ...
 
 
-def link2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int], header: Header) -> None: ...
-
-
-def img2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int], header: Header) -> None: ...
-
-
-def width2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int], header: Header) -> None: ...
-
-
-def height2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int], header: Header) -> None: ...
-
-
-def style2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int], header: Header) -> None:
-    """批量设置单元格格式到sheet"""
-    ...
-
-
-def set_style(height: float, styles: List[CellStyle], ws: Worksheet, row: int) -> None: ...
-
-
-def copy_some_row_style(ws: Worksheet, row: int, styles: List[Iterable]) -> None:
-    """复制上一行指定列样式到后续行中"""
-    ...
-
-
-def copy_full_row_style(ws: Worksheet, row: int, cur_data: list) -> None:
-    """复制上一行整行样式到新行中"""
-    ...
-
-
-def copy_part_row_style(ws: Worksheet, row: int, cur_data: list, col: int) -> None:
-    """复制上一行局部（连续）样式到后续行中"""
-    ...
+def height2ws(ws: Worksheet, data: Union[dict, list]) -> None: ...

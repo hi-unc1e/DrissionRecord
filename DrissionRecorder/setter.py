@@ -6,7 +6,7 @@ from openpyxl.workbook import Workbook
 
 from .cell_style import CellStyle
 from .tools import (make_valid_name, data_to_list_or_dict_simplify, data_to_list_or_dict,
-                    Header, ZeroHeader, process_content_xlsx, ok_list_str)
+                    Header, ZeroHeader, process_content_xlsx, ok_list_str, twoD2ws_follow, twoD2ws, twoD2ws_style)
 
 
 class OriginalSetter(object):
@@ -148,15 +148,31 @@ class RecorderSetter(BaseSetter):
 
     def follow_styles(self, on_off=True):
         self._recorder._follow_styles = on_off
+        if on_off:
+            self._recorder._styles = None
+            self._recorder._row_height = None
+            self._recorder._slow_methods['2D'] = twoD2ws_follow
+        else:
+            self._recorder._slow_methods['2D'] = twoD2ws
         return self
 
-    def default_row_height(self, height):
+    def new_row_height(self, height):
         self._recorder._row_height = height
+        if height is not None:
+            self._recorder._follow_styles = None
+            self._recorder._slow_methods['2D'] = twoD2ws_style
+        else:
+            self._recorder._slow_methods['2D'] = twoD2ws
         return self
 
-    def default_styles(self, styles):
+    def new_row_styles(self, styles):
         self._recorder.record()
         self._recorder._styles = styles
+        if styles is not None:
+            self._recorder._follow_styles = None
+            self._recorder._slow_methods['2D'] = twoD2ws_style
+        else:
+            self._recorder._slow_methods['2D'] = twoD2ws
         return self
 
     def data_col(self, col):

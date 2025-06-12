@@ -7,7 +7,41 @@ from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .base import BaseRecorder
+from .cell_style import CellStyle, CellStyleCopier
 from .recorder import Recorder
+
+
+def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
+            rewrite: bool) -> bool: ...
+
+
+def line2ws_follow(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
+                   rewrite: bool, styles: Dict[int, CellStyleCopier]) -> bool: ...
+
+
+def twoD2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+            header: Header, rewrite: bool, rewrite_method: str) -> bool: ...
+
+
+def oneD2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+            header: Header, rewrite: bool, rewrite_method: str) -> None: ...
+
+
+def twoD2ws_follow(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+                   header: Header, rewrite: bool, rewrite_method: str) -> None: ...
+
+
+def twoD2ws_style(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+                  header: Header, rewrite: bool, rewrite_method: str) -> None:
+    """处理有指定默认单元格样式的情况"""
+    ...
+
+
+def styles2new_rows(ws: Worksheet, styles: Union[list, dict, CellStyle],
+                    height: Union[int, float], begin_row: int, end_row: int, header: Header) -> None: ...
+
+
+def style2ws(recorder, ws, data, coord, header): ...
 
 
 def remove_end_Nones(in_list: list) -> list:

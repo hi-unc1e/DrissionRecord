@@ -203,14 +203,14 @@ class RecorderSetter(BaseSetter):
         """
         ...
 
-    def default_row_height(self, height: float) -> RecorderSetter:
+    def new_row_height(self, height: float) -> RecorderSetter:
         """设置新行行高，只有xlsx格式有效
         :param height: 行高，传入None清空设置
         :return: 设置对象自己
         """
         ...
 
-    def default_styles(self,
+    def new_row_styles(self,
                        styles: Union[CellStyle, List[CellStyle], Tuple[CellStyle, ...],
                        Dict[Any, CellStyle], None]) -> RecorderSetter:
         """设置新行样式，只有xlsx格式有效，可传入多个，传入None则取消

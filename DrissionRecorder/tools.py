@@ -8,7 +8,143 @@ from openpyxl.cell import Cell, ReadOnlyCell
 from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
 
-from .cell_style import CellStyle
+from .cell_style import CellStyle, CellStyleCopier, NoneStyle
+
+
+def line2ws(ws, header, row, col, data, rewrite_method, rewrite):
+    if isinstance(data, dict):
+        data, rewrite, header_len = header.__getattribute__(rewrite_method)(data, 'xlsx', rewrite)
+        for c, val in data.items():
+            ws.cell(row, c, value=process_content_xlsx(val))
+    else:
+        for key, val in enumerate(data):
+            ws.cell(row, col + key, value=process_content_xlsx(val))
+    return rewrite
+
+
+def line2ws_follow(ws, header, row, col, data, rewrite_method, rewrite, styles):
+    if isinstance(data, dict):
+        data, rewrite, header_len = header.__getattribute__(rewrite_method)(data, 'xlsx', rewrite)
+        for c, val in data.items():
+            cell = ws.cell(row, c, value=process_content_xlsx(val))
+            styles[c].to_cell(cell)
+    else:
+        for key, val in enumerate(data):
+            col = col + key
+            cell = ws.cell(row, col, value=process_content_xlsx(val))
+            styles[col].to_cell(cell)
+    return rewrite
+
+
+def twoD2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+    row, col = coord
+    for r, d in enumerate(data, row):
+        rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
+    return rewrite
+
+
+def oneD2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+    return recorder._slow_methods['2D'](recorder, ws, [data, ], coord, header, rewrite, rewrite_method, new_row)
+
+
+def twoD2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+    row, col = coord
+    if row > 1:
+        styles = {ind: CellStyleCopier(cell) for ind, cell in enumerate(ws[row - 1], 1)}
+        for r, d in enumerate(data, row):
+            rewrite = line2ws_follow(ws, header, r, col, d, rewrite_method, rewrite, styles)
+
+    else:
+        for r, d in enumerate(data, row):
+            rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
+
+    return rewrite
+
+
+def twoD2ws_style(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+    row, col = coord
+    if new_row:
+        for r, d in enumerate(data, row):
+            rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
+        styles2new_rows(ws, recorder._styles, recorder._row_height, row, r, header)
+
+    else:
+        for r, d in enumerate(data, row):
+            rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
+
+    return rewrite
+
+
+def styles2new_rows(ws, styles, height, begin_row, end_row, header):
+    if isinstance(styles, dict):
+        styles = header.make_num_dict(styles, None)[0]
+        styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
+    elif isinstance(styles, CellStyle):
+        styles = [styles] * ws.max_column
+
+    for r in range(begin_row, end_row + 1):
+        if height is not None:
+            ws.row_dimensions[r].height = height
+        if styles:
+            for c, s in enumerate(styles, start=1):
+                if s:
+                    s.to_cell(ws.cell(row=r, column=c))
+
+
+def style2ws(**kwargs):
+    recorder = kwargs['recorder']
+    ws = kwargs['ws']
+    data = kwargs['data']
+    header = kwargs['header']
+    coord = kwargs['real_coord'] if data['real_coord'] else get_real_coord(kwargs['coord'], ws.max_row, ws.max_column)
+
+    none_style = NoneStyle()
+    if isinstance(data[1][1], dict):
+        if isinstance(coord, str):
+            begin, end = coord.split(':', 1)
+            try:
+                begin = int(begin)
+                end = int(end)
+                if begin > end:
+                    begin, end = end, begin
+            except ValueError:
+                return
+        else:
+            begin, end = coord[0], coord[0]
+
+        for i in range(begin, end+1):
+            for h, s in header.make_num_dict(data[1][1], None)[0].items():
+                if not s:
+                    s = none_style
+                s.to_cell(ws.cell(i, header[h]), replace=data['mode']=='replace')
+
+
+        coord = parse_coord(coord, recorder.data_col)
+        row, col = get_usable_coord(coord, max_row, ws)
+        for h, s in header.make_num_dict(data[1][1], None)[0].items():
+            if not s:
+                s = none_style
+            s.to_cell(ws.cell(row, header[h]), replace=mode)
+        return
+
+    style = NoneStyle() if data[1][1] is None else data[1][1]
+    if isinstance(coord, int) or (isinstance(coord, str) and coord.isdigit()):
+        for c in ws[coord]:
+            style.to_cell(c, replace=mode)
+
+    elif isinstance(coord, str):
+        if ':' in coord:
+            for c in ws[coord]:
+                for cc in c:
+                    style.to_cell(cc, replace=mode)
+        elif coord.isdigit() or coord.isalpha():
+            for c in ws[coord]:
+                style.to_cell(c, replace=mode)
+
+    else:
+        coord = parse_coord(coord, recorder.data_col)
+        row, col = get_usable_coord(coord, max_row, ws)
+        style.to_cell(ws.cell(row, col), replace=mode)
 
 
 def is_sigal_data(data):
@@ -391,7 +527,6 @@ def get_long(txt):
 
 
 def parse_coord(coord, data_col):
-    return_coord = None
     if not coord:  # 新增一行，列为data_col
         return_coord = 0, data_col
 
@@ -460,8 +595,8 @@ def parse_coord(coord, data_col):
 
         return_coord = x, y
 
-    if not return_coord:
-        raise ValueError(f'{return_coord} 坐标格式不正确。')
+    else:
+        raise ValueError(f'{coord} 坐标格式不正确。')
     return return_coord
 
 
