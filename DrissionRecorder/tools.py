@@ -92,59 +92,95 @@ def styles2new_rows(ws, styles, height, begin_row, end_row, header):
 
 
 def style2ws(**kwargs):
-    recorder = kwargs['recorder']
     ws = kwargs['ws']
-    data = kwargs['data']
     header = kwargs['header']
+    data = kwargs['data']
+    styles = data['styles']
     coord = kwargs['real_coord'] if data['real_coord'] else get_real_coord(kwargs['coord'], ws.max_row, ws.max_column)
-
     none_style = NoneStyle()
-    if isinstance(data[1][1], dict):
-        if isinstance(coord, str):
+    mode = data['mode'] == 'replace'
+
+    if isinstance(styles, dict):
+        if isinstance(coord, int):
+            begin, end = coord, coord
+        elif isinstance(coord, str):
+            if ':' not in coord:
+                return
             begin, end = coord.split(':', 1)
+            if begin.isalpha() or end.isalpha():
+                return
             try:
-                begin = int(begin)
-                end = int(end)
+                begin = parse_coord(begin)[0]
+                end = parse_coord(end)[0]
                 if begin > end:
                     begin, end = end, begin
-            except ValueError:
+            except:
                 return
         else:
             begin, end = coord[0], coord[0]
 
-        for i in range(begin, end+1):
+        for i in range(begin, end + 1):
             for h, s in header.make_num_dict(data[1][1], None)[0].items():
                 if not s:
                     s = none_style
-                s.to_cell(ws.cell(i, header[h]), replace=data['mode']=='replace')
+                s.to_cell(ws.cell(i, header[h]), replace=mode)
 
-
-        coord = parse_coord(coord, recorder.data_col)
-        row, col = get_usable_coord(coord, max_row, ws)
-        for h, s in header.make_num_dict(data[1][1], None)[0].items():
-            if not s:
-                s = none_style
-            s.to_cell(ws.cell(row, header[h]), replace=mode)
-        return
-
-    style = NoneStyle() if data[1][1] is None else data[1][1]
-    if isinstance(coord, int) or (isinstance(coord, str) and coord.isdigit()):
-        for c in ws[coord]:
-            style.to_cell(c, replace=mode)
-
-    elif isinstance(coord, str):
-        if ':' in coord:
+    elif isinstance(styles, CellStyle):
+        if isinstance(coord, str) and ':' in coord:
             for c in ws[coord]:
                 for cc in c:
-                    style.to_cell(cc, replace=mode)
-        elif coord.isdigit() or coord.isalpha():
+                    styles.to_cell(cc, replace=mode)
+        elif isinstance(coord, int):
             for c in ws[coord]:
-                style.to_cell(c, replace=mode)
+                styles.to_cell(c, replace=mode)
+        else:
+            styles.to_cell(ws.cell(*parse_coord(coord)), replace=mode)
 
-    else:
-        coord = parse_coord(coord, recorder.data_col)
-        row, col = get_usable_coord(coord, max_row, ws)
-        style.to_cell(ws.cell(row, col), replace=mode)
+    else:  # list或tuple
+        if isinstance(coord, tuple):
+            row, col = parse_coord(coord)
+            for c, s in enumerate(styles, col):
+                s.to_cell(ws.cell(row, c), replace=mode)
+
+        elif isinstance(coord, int):
+            for c, s in enumerate(styles, 1):
+                s.to_cell(ws.cell(coord, c), replace=mode)
+
+        elif isinstance(coord, str):
+            if ':' in coord:
+                begin, end = coord.split(':', 1)
+                if begin.isalpha() and end.isalpha():  # 'A:C'形式
+                    begin = ZeroHeader().key_num.get(begin, None)
+                    end = ZeroHeader().key_num.get(end, None)
+                    if not begin or not end:
+                        return
+                    if begin > end:
+                        begin, end = end, begin
+                    styles_len = len(styles)
+                    for i in range(begin, end + 1):
+                        for ind, cell in enumerate(ws[ZeroHeader().num_key[i]]):
+                            styles[ind % styles_len].to_cell(cell, replace=mode)
+
+                elif not begin.isalpha() and not end.isalpha():  # 'A1:C3'形式
+                    row1, col1 = parse_coord(begin)
+                    row2, col2 = parse_coord(end)
+                    if row1 > row2:
+                        row1, row2 = row2, row1
+                    if col1 > col2:
+                        col1, col2 = col2, col1
+                    for r in range(row1, row2 + 1):
+                        for c, s in enumerate(styles, col1):
+                            s.to_cell(ws.cell(r, c), replace=mode)
+
+            elif coord.isalpha():  # 列'A'形式
+                styles_len = len(styles)
+                for ind, cell in enumerate(ws[coord]):
+                    styles[ind % styles_len].to_cell(cell, replace=mode)
+
+            else:  # 'A1'形式
+                row, col = parse_coord(coord)
+                for ind, s in enumerate(styles, col):
+                    s.to_cell(ws.cell(row, col + ind), replace=mode)
 
 
 def is_sigal_data(data):
@@ -526,7 +562,7 @@ def get_long(txt):
     return int((len(txt.encode('utf-8')) - txt_len) / 2 + txt_len)
 
 
-def parse_coord(coord, data_col):
+def parse_coord(coord, data_col=1):
     if not coord:  # 新增一行，列为data_col
         return_coord = 0, data_col
 

@@ -99,8 +99,17 @@ class Recorder(BaseRecorder):
                     'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
 
     def _set_style(self, coord, styles, replace=True, table=None):
-        real, coord = ((coord, (1, 1)) if isinstance(coord, str) and ':' in coord
-                       else (None, parse_coord(coord, self.data_col)))
+        if isinstance(coord, str):
+            if ':' in coord:
+                real, coord = coord, (1, 1)
+            elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
+                real, coord = int(coord), (1, 1)
+            else:
+                real, coord = coord.upper(), (1, 1)
+        elif isinstance(coord, int):
+            real, coord = coord, (1, 1)
+        else:
+            real, coord = None, parse_coord(coord, self.data_col)
         self._add([{'type': 'setStyle', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
                     'styles': styles, 'coord': coord}], table, self._fast, 1)
 

@@ -215,7 +215,7 @@ def get_long(txt: str) -> int:
 
 
 def parse_coord(coord: Union[int, str, list, tuple, None],
-                data_col: Optional[int]) -> Tuple[Optional[int], Optional[int]]:
+                data_col: int=1) -> Tuple[Optional[int], Optional[int]]:
     """添加数据，每次添加一行数据，可指定坐标、列号或行号
     coord只输入数字（行号）时，列号为self.data_col值，如 3；
     输入列号，或没有行号的坐标时，表示新增一行，列号为此时指定的，如'c'、',3'、(None, 3)、'None,3'；
