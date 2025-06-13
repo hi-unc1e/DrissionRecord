@@ -96,7 +96,7 @@ def style2ws(**kwargs):
     header = kwargs['header']
     data = kwargs['data']
     styles = data['styles']
-    coord = kwargs['real_coord'] if data['real_coord'] else get_real_coord(kwargs['coord'], ws.max_row, ws.max_column)
+    coord = data['real_coord'] if data['real_coord'] else get_real_coord(data['coord'], ws.max_row, ws.max_column)
     none_style = NoneStyle()
     mode = data['mode'] == 'replace'
 
@@ -120,10 +120,10 @@ def style2ws(**kwargs):
             begin, end = coord[0], coord[0]
 
         for i in range(begin, end + 1):
-            for h, s in header.make_num_dict(data[1][1], None)[0].items():
+            for h, s in header.make_num_dict(styles, None)[0].items():
                 if not s:
                     s = none_style
-                s.to_cell(ws.cell(i, header[h]), replace=mode)
+                s.to_cell(ws.cell(i, h), replace=mode)
 
     elif isinstance(styles, CellStyle):
         if isinstance(coord, str) and ':' in coord:
@@ -471,9 +471,9 @@ class RowData(dict):
             raise ValueError('key只能传入str或大于0的int。')
         return ((self.row, key), val) if coord else val
 
-    def col(self, key, num=False):
+    def col(self, key, num=True):
         key = self.header[key]
-        return key if num else self.header.num_key[key]
+        return key if num else ZeroHeader().num_key[key]
 
 
 def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
@@ -620,7 +620,7 @@ def parse_coord(coord, data_col=1):
             raise TypeError('行格式不正确。')
 
         if (isinstance(coord[1], int) or (isinstance(coord[1], str)
-                                          and (coord[1].isdigit() or (coord[0][0] == '-' and coord[0][1:].isdigit())))):
+                                          and (coord[1].isdigit() or (coord[1][0] == '-' and coord[1][1:].isdigit())))):
             y = int(coord[1])
         elif coord[1] in (None, 'new'):
             y = 0

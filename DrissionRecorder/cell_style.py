@@ -18,7 +18,6 @@ class CellStyle(object):
     pattern_fill_args = ('patternType', 'fgColor', 'bgColor')
 
     def __init__(self):
-        """用于管理单元格样式的类"""
         self._font = None
         self._border = None
         self._alignment = None
@@ -39,28 +38,24 @@ class CellStyle(object):
 
     @property
     def font(self):
-        """返回用于设置单元格字体的对象"""
         if self._font is None:
             self._font = CellFont()
         return self._font
 
     @property
     def border(self):
-        """返回用于设置单元格边框的对象"""
         if self._border is None:
             self._border = CellBorder()
         return self._border
 
     @property
     def alignment(self):
-        """返回用于设置单元格对齐选项的对象"""
         if self._alignment is None:
             self._alignment = CellAlignment()
         return self._alignment
 
     @property
     def pattern_fill(self):
-        """返回用于设置单元格图案填充的对象"""
         self._gradient_fill = None
         if self._pattern_fill is None:
             self._pattern_fill = CellPatternFill()
@@ -68,7 +63,6 @@ class CellStyle(object):
 
     @property
     def gradient_fill(self):
-        """返回用于设置单元格渐变填充的对象"""
         self._pattern_fill = None
         if self._gradient_fill is None:
             self._gradient_fill = CellGradientFill()
@@ -76,32 +70,15 @@ class CellStyle(object):
 
     @property
     def number_format(self):
-        """返回用于设置单元格数字格式的对象"""
         if self._number_format is None:
             self._number_format = CellNumberFormat()
         return self._number_format
 
     @property
     def protection(self):
-        """返回用于设置单元格保护选项的对象"""
         if self._protection is None:
             self._protection = CellProtection()
         return self._protection
-
-    def set_size(self, width=None, height=None, clear=False):
-        """设置单元格宽和高
-        :param width: 单元格宽度，为None则不改变
-        :param height: 单元格高度，为None则不改变
-        :param clear: 清除单元格宽高设置，为True时其它两个参数无效
-        :return: None
-        """
-        if clear:
-            self.width = self.height = None
-            return
-        if width is not None:
-            self.width = width
-        if height is not None:
-            self.height = height
 
     def to_cell(self, cell, replace=True):
         """把当前样式复制到目标单元格
@@ -118,11 +95,36 @@ class CellStyle(object):
         if self.width is not None:
             cell.parent.column_dimensions[get_column_letter(cell.column)].width = self.width
 
+    def set_size(self, width=None, height=None):
+        if width == height is None:
+            self.width = self.height = None
+            return self
+        if width is not None:
+            self.width = width
+        if height is not None:
+            self.height = height
+        return self
+
+    def set_bgColor(self, color):
+        self.pattern_fill.set_fgColor(color)
+        return self
+
+    def set_txtSize(self, size=None, bold=None):
+        if size is not None:
+            self.font.set_size(size)
+        if bold is not None:
+            self.font.set_bold(bold)
+        return self
+
+    def set_txtColor(self, color):
+        self.font.set_color(color)
+        return self
+
+    def set_delLine(self, on_off=True):
+        self.font.set_strike(on_off)
+        return self
+
     def _cover_to_cell(self, cell):
-        """把当前样式复制到目标单元格，只覆盖有设置的项，没有设置的原有的项不变
-        :param cell: 被设置样式的单元格对象
-        :return: None
-        """
         if self._font:
             d = _handle_args(self.font_args, self._font, cell.font)
             d['family'] = cell.font.family
@@ -154,10 +156,6 @@ class CellStyle(object):
             cell.protection = Protection(**d)
 
     def _replace_to_cell(self, cell):
-        """把当前样式复制到目标单元格，覆盖原有的设置
-        :param cell: 被设置样式的单元格对象
-        :return: None
-        """
         if self._font:
             if self._Font is None:
                 d = _handle_args(self.font_args, self._font, None)
@@ -231,107 +229,51 @@ class CellFont(object):
         self.scheme = 'notSet'
 
     def set_name(self, name):
-        """设置字体
-        :param name: 字体名称，None表示恢复默认
-        :return: None
-        """
         self.name = name
 
     def set_charset(self, charset):
-        """设置编码
-        :param charset: 字体编码，int格式，None表示恢复默认
-        :return: None
-        """
         if not isinstance(charset, int):
             raise TypeError('charset参数只能接收int类型。')
         self.charset = charset
 
     def set_size(self, size):
-        """设置字体大小
-        :param size: 字体大小，None表示恢复默认
-        :return: None
-        """
         self.size = size
 
     def set_bold(self, on_off):
-        """设置是否加粗
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.bold = on_off
 
     def set_italic(self, on_off):
-        """设置是否斜体
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.italic = on_off
 
     def set_strike(self, on_off):
-        """设置是否有删除线
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.strike = on_off
 
     def set_outline(self, on_off):
-        """设置outline
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.outline = on_off
 
     def set_shadow(self, on_off):
-        """设置是否有阴影
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.shadow = on_off
 
     def set_condense(self, on_off):
-        """设置condense
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.condense = on_off
 
     def set_extend(self, on_off):
-        """设置extend
-        :param on_off: bool表示开关，None表示恢复默认
-        :return: None
-        """
         self.extend = on_off
 
     def set_color(self, color):
-        """设置字体颜色
-        :param color: 字体颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         self.color = get_color_code(color)
 
     def set_underline(self, option):
-        """设置下划线
-        :param option: 下划线类型，可选 'single', 'double', 'singleAccounting', 'doubleAccounting'，None表示恢复默认
-        :return: None
-        """
         if option not in self._LINE_STYLES:
             raise ValueError(f'option参数只能是{self._LINE_STYLES}其中之一。')
         self.underline = option
 
     def set_vertAlign(self, option):
-        """设置上下标
-        :param option: 可选 'superscript', 'subscript', 'baseline'，None表示恢复默认
-        :return: None
-        """
         if option not in self._VERT_ALIGNS:
             raise ValueError(f'option参数只能是{self._VERT_ALIGNS}其中之一。')
         self.vertAlign = option
 
     def set_scheme(self, option):
-        """设置scheme
-        :param option: 可选 'major', 'minor'，None表示恢复默认
-        :return: None
-        """
         if option not in self._SCHEMES:
             raise ValueError(f'option参数只能是{self._SCHEMES}其中之一。')
         self.scheme = option
@@ -357,134 +299,62 @@ class CellBorder(object):
         self.diagonalDown = 'notSet'
 
     def set_start(self, style, color):
-        """设置start
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.start = Side(style=style, color=get_color_code(color))
 
     def set_end(self, style, color):
-        """设置end
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.end = Side(style=style, color=get_color_code(color))
 
     def set_left(self, style, color):
-        """设置左边框
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.left = Side(style=style, color=get_color_code(color))
 
     def set_right(self, style, color):
-        """设置右边框
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.right = Side(style=style, color=get_color_code(color))
 
     def set_top(self, style, color):
-        """设置上边框
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.top = Side(style=style, color=get_color_code(color))
 
     def set_bottom(self, style, color):
-        """设置下边框
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.bottom = Side(style=style, color=get_color_code(color))
 
     def set_quad(self, style, color):
-        """设置四个边框边框
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.bottom = self.top = self.right = self.left = Side(style=style, color=get_color_code(color))
 
     def set_diagonal(self, style, color):
-        """设置对角线
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.diagonal = Side(style=style, color=get_color_code(color))
 
     def set_vertical(self, style, color):
-        """设置垂直中线
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.vertical = Side(style=style, color=get_color_code(color))
 
     def set_horizontal(self, style, color):
-        """设置水平中线
-        :param style: 线形，'dashDot','dashDotDot', 'dashed','dotted', 'double','hair', 'medium', 'mediumDashDot',
-                      'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin'，None表示恢复默认
-        :param color: 边框颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         if style not in self._LINE_STYLES:
             raise ValueError(f'style参数只能是{self._LINE_STYLES}之一。')
         self.horizontal = Side(style=style, color=get_color_code(color))
 
     def set_outline(self, on_off):
-        """
-        :param on_off: bool表示开关
-        :return: None
-        """
         self.outline = on_off
 
     def set_diagonalDown(self, on_off):
-        """
-        :param on_off: bool表示开关
-        :return: None
-        """
         self.diagonalDown = on_off
 
     def set_diagonalUp(self, on_off):
-        """
-        :param on_off: bool表示开关
-        :return: None
-        """
         self.diagonalUp = on_off
 
 
@@ -505,79 +375,42 @@ class CellAlignment(object):
         self.shrinkToFit = 'notSet'
 
     def set_horizontal(self, horizontal):
-        """设置水平位置
-        :param horizontal: 可选：'general', 'left', 'center', 'right', 'fill', 'justify', 'centerContinuous',
-                                'distributed'，None表示恢复默认
-        :return: None
-        """
         if horizontal not in self._horizontal_alignments:
             raise ValueError(f'horizontal参数必须是{self._horizontal_alignments}其中之一。')
         self.horizontal = horizontal
 
     def set_vertical(self, vertical):
-        """设置垂直位置
-        :param vertical: 可选：'top', 'center', 'bottom', 'justify', 'distributed'，None表示恢复默认
-        :return: None
-        """
         if vertical not in self._vertical_alignments:
             raise ValueError(f'horizontal参数必须是{self._vertical_alignments}其中之一。')
         self.vertical = vertical
 
     def set_indent(self, indent):
-        """设置缩进
-        :param indent: 缩进数值，0到255
-        :return: None
-        """
         if not (isinstance(indent, int) and 0 <= indent <= 255):
             raise ValueError('value参数必须在0到255之间。')
         self.indent = indent
 
     def set_relativeIndent(self, indent):
-        """设置相对缩进
-        :param indent: 缩进数值，-255到255
-        :return: None
-        """
         if not (isinstance(indent, int) and -255 <= indent <= 255):
             raise ValueError('value参数必须在-255到255之间。')
         self.relativeIndent = indent
 
     def set_justifyLastLine(self, on_off):
-        """设置justifyLastLine
-        :param on_off: bool表示开或关，None表示恢复默认
-        :return: None
-        """
         self.justifyLastLine = on_off
 
     def set_readingOrder(self, value):
-        """设置readingOrder
-        :param value: 不小于0的数字
-        :return: None
-        """
         if not (isinstance(value, int) and value >= 0):
             raise ValueError('value参数必须不小于0。')
         self.readingOrder = value
 
     def set_textRotation(self, value):
-        """设置文本旋转角度
-        :param value: 0-180或255
-        :return: None
-        """
         if not (0 <= value <= 180 or value == 255):
             raise ValueError('value必须在0到180之间。')
         self.textRotation = value
 
     def set_wrapText(self, on_off):
-        """设置wrapText
-        :param on_off: bool表示开或关，None表示恢复默认
-        :return: None
-        """
         self.wrapText = on_off
 
     def set_shrinkToFit(self, on_off):
-        """设置shrinkToFit
-        :param on_off: bool表示开或关，None表示恢复默认
-        :return: None
-        """
         self.shrinkToFit = on_off
 
 
@@ -592,54 +425,26 @@ class CellGradientFill(object):
         self.stop = 'notSet'
 
     def set_type(self, name):
-        """设置类型
-        :param name: 可选：'linear', 'path'
-        :return: None
-        """
         if name not in ('linear', 'path'):
             raise ValueError("name参数只能是 'linear', 'path' 之一。")
         self.type = name
 
     def set_degree(self, value):
-        """设置程度
-        :param value: 数值
-        :return: None
-        """
         self.degree = value
 
     def set_left(self, value):
-        """设置left
-        :param value: 数值
-        :return: None
-        """
         self.left = value
 
     def set_right(self, value):
-        """设置right
-        :param value: 数值
-        :return: None
-        """
         self.right = value
 
     def set_top(self, value):
-        """设置top
-        :param value: 数值
-        :return: None
-        """
         self.top = value
 
     def set_bottom(self, value):
-        """设置bottom
-        :param value: 数值
-        :return: None
-        """
         self.bottom = value
 
     def set_stop(self, values):
-        """设置stop
-        :param values: 数值
-        :return: None
-        """
         self.stop = values
 
 
@@ -654,30 +459,16 @@ class CellPatternFill(object):
         self.bgColor = 'notSet'
 
     def set_patternType(self, name):
-        """设置类型
-        :param name: 可选：'none', 'solid', 'darkDown', 'darkGray', 'darkGrid', 'darkHorizontal', 'darkTrellis',
-                          'darkUp', 'darkVertical', 'gray0625', 'gray125', 'lightDown', 'lightGray', 'lightGrid',
-                          'lightHorizontal', 'lightTrellis', 'lightUp', 'lightVertical', 'mediumGray'，None为恢复默认
-        :return: None
-        """
         if name not in self._FILES:
             raise ValueError(f'name参数只能是{self._FILES}其中之一。')
         self.patternType = name
 
     def set_fgColor(self, color):
-        """设置前景色
-        :param color: 颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         self.fgColor = get_color_code(color)
         if self.patternType == 'notSet':
             self.patternType = 'solid'
 
     def set_bgColor(self, color):
-        """设置背景色
-        :param color: 颜色，格式：'FFFFFF', '255,255,255', (255, 255, 255), Color对象均可，None表示恢复默认
-        :return: None
-        """
         self.bgColor = get_color_code(color)
         if self.patternType == 'notSet':
             self.patternType = 'solid'
@@ -688,10 +479,6 @@ class CellNumberFormat(object):
         self.format = 'notSet'
 
     def set_format(self, string):
-        """设置数字格式
-        :param string: 格式字符串，为None时恢复默认，格式很多具体在`openpyxl.numbers`查看
-        :return: None
-        """
         if string is None:
             string = 'General'
         self.format = string
@@ -703,17 +490,9 @@ class CellProtection(object):
         self.locked = 'notSet'
 
     def set_hidden(self, on_off):
-        """设置是否隐藏
-        :param on_off: bool表示开关
-        :return: None
-        """
         self.hidden = on_off
 
     def set_locked(self, on_off):
-        """设置是否锁定
-        :param on_off: bool表示开关
-        :return: None
-        """
         self.locked = on_off
 
 
@@ -731,10 +510,6 @@ class CellStyleCopier(object):
         self._alignment = copy(from_cell.alignment)
 
     def to_cell(self, cell):
-        """把当前样式复制到目标单元格
-        :param cell: 被设置样式的单元格对象
-        :return: None
-        """
         cell._style = self._style
         cell.alignment = self._alignment
         cell.font = self._font
@@ -745,10 +520,6 @@ class CellStyleCopier(object):
 
 
 def get_color_code(color):
-    """将颜色拼音转为代码
-    :param color: 颜色名称或代码字符串
-    :return: 颜色代码
-    """
     if color is None:
         return '000000'
     if isinstance(color, Color):

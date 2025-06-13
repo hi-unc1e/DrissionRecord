@@ -305,7 +305,7 @@ class Recorder(BaseRecorder):
                 rewrite = self._slow_methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
-                       'data': data,
+                       'data': cur,
                        'coord': (1, get_real_col(cur['coord'], ws.max_column)),
                        'new_row': not cur['coord'][0],
                        'header': header,
@@ -317,7 +317,7 @@ class Recorder(BaseRecorder):
                 rewrite = self._slow_methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
-                       'data': data,
+                       'data': cur,
                        'coord': get_real_coord(cur['coord'], ws.max_row, ws.max_column),
                        'new_row': not cur['coord'][0],
                        'header': header,

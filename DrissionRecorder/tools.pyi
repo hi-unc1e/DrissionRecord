@@ -168,11 +168,11 @@ class RowData(dict):
         """
         ...
 
-    def col(self, key: str, num: bool = False) -> Union[str, int]:
+    def col(self, key: str, num: bool = True) -> Union[str, int]:
         """获取指定表头项数据所在列
         :param key: 表头项
         :param num: 为True时返回列序号，否则返回列号
-        :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
+        :return: num: 为True时返回int格式列序号，否则返回str格式列号
         """
         ...
 
