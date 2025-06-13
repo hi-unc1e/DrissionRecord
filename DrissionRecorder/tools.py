@@ -252,6 +252,10 @@ def process_content_str(content):
         return str(content)
 
 
+def process_nothing(content):
+    return content
+
+
 def do_nothing(*args, **kwargs):
     return
 
@@ -261,7 +265,7 @@ class BaseHeader(object):
     _KEY_NUM = {}
     _CONTENT_FUNCS = {'csv': process_content_str,
                       'xlsx': process_content_xlsx,
-                      None: do_nothing}
+                      None: process_nothing}
 
     def __new__(cls, header=None):
         if not cls._NUM_KEY:

@@ -53,7 +53,7 @@ class Recorder(BaseRecorder):
         if file_type == 'xlsx':
             self._methods['setImg'] = self._set_img
             self._methods['setLink'] = self._set_link
-            self._methods['setStyle'] = self._set_style
+            self._methods['setStyle'] = self._set_styles
             self._methods['setHeight'] = self._set_row_height
             self._methods['setWidth'] = self._set_col_width
         else:
@@ -98,14 +98,14 @@ class Recorder(BaseRecorder):
         self._add([{'type': 'setLink', 'imgPath': img_path, 'width': width, 'height': height,
                     'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
 
-    def _set_style(self, coord, styles, replace=True, table=None):
+    def _set_styles(self, coord, styles, replace=True, table=None):
         if isinstance(coord, str):
             if ':' in coord:
                 real, coord = coord, (1, 1)
             elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
                 real, coord = int(coord), (1, 1)
             else:
-                real, coord = coord.upper(), (1, 1)
+                real, coord = None, parse_coord(coord, self.data_col)
         elif isinstance(coord, int):
             real, coord = coord, (1, 1)
         else:

@@ -109,10 +109,10 @@ class Recorder(BaseRecorder):
         ...
 
     def set_styles(self,
-                  coord: Union[int, str, tuple, list],
-                  styles: Union[CellStyle, dict, list, tuple],
-                  replace: bool = True,
-                  table: Union[str, bool] = None) -> None:
+                   coord: Union[int, str, tuple, list],
+                   styles: Union[CellStyle, dict, list, tuple],
+                   replace: bool = True,
+                   table: Union[str, bool] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
         :param styles: CellStyle对象，为None则清除单元格样式
@@ -172,11 +172,11 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_style(self,
-                   coord: Union[int, str, tuple, list],
-                   style: Union[CellStyle, dict],
-                   replace: bool = True,
-                   table: Union[str, bool] = None) -> None:
+    def _set_styles(self,
+                    coord: Union[int, str, tuple, list],
+                    style: Union[CellStyle, dict],
+                    replace: bool = True,
+                    table: Union[str, bool] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
         :param style: CellStyle对象，为None则清除单元格样式
