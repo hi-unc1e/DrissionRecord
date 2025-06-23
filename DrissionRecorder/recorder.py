@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 from csv import reader as csv_reader, writer as csv_writer
+from json import dumps
 from pathlib import Path
 from time import sleep
 
@@ -385,42 +386,19 @@ class Recorder(BaseRecorder):
         if not self._file_exists and not Path(self.path).exists():
             with open(self.path, 'w', encoding=self.encoding):
                 pass
-
         with open(self.path, 'r+', encoding=self.encoding) as f:
             lines = f.readlines()
-            lines_len = len(lines)
-            for data in self._data[None]:
-                num = get_real_row(data['coord'][0], lines_len)
-                if lines_len < num + len(data['data']):
-                    diff = num + len(data['data']) - lines_len - 1
-                    [lines.append('\n') for _ in range(diff)]
-                    lines_len += diff
-
-                for num, d in enumerate(data['data'], num - 1):
-                    lines[num] = ' '.join(ok_list_str(d)) + '\n'
-
+            handle_txt_lines(self._data[None], lines, '\n', handle_jsonl_data)
             f.seek(0)
             f.writelines(lines)
 
     def _to_jsonl_slow(self):
-        from json import dumps
         if not self._file_exists and not Path(self.path).exists():
             with open(self.path, 'w', encoding=self.encoding):
                 pass
-
         with open(self.path, 'r+', encoding=self.encoding) as f:
             lines = f.readlines()
-            lines_len = len(lines)
-            for data in self._data[None]:
-                num = get_real_row(data['coord'][0], lines_len)
-                if lines_len < num + len(data['data']):
-                    diff = num + len(data['data']) - lines_len - 1
-                    [lines.append('\n') for _ in range(diff)]
-                    lines_len += diff
-
-                for num, d in enumerate(data['data'], num - 1):
-                    lines[num] = d if isinstance(d, str) else dumps(d) + '\n'
-
+            handle_txt_lines(self._data[None], lines, '[]\n', handle_jsonl_data)
             f.seek(0)
             f.writelines(lines)
 
@@ -428,21 +406,43 @@ class Recorder(BaseRecorder):
         from json import load, dump
         if self._file_exists or Path(self.path).exists():
             with open(self.path, 'r', encoding=self.encoding) as f:
-                json_data = load(f)
+                lines = load(f)
         else:
-            json_data = []
-
-        for i in self._data[None]:
-            i = i['data']
-            if isinstance(i, dict):
-                for d in i:
-                    i[d] = process_content_json(i[d])
-                json_data.append(i)
-            else:
-                json_data.append([process_content_json(d) for d in i])
-
+            lines = []
+        handle_txt_lines(self._data[None], lines, None, handle_json_data)
         with open(self.path, 'w', encoding=self.encoding) as f:
-            dump(json_data, f)
+            dump(lines, f)
+
+
+def handle_txt_lines(data_lst, lines, val, method):
+    lines_len = len(lines)
+    for data in data_lst:
+        num = get_real_row(data['coord'][0], lines_len)
+        data_end = num + len(data['data'])
+        if lines_len < data_end:
+            diff = data_end - lines_len - 1
+            [lines.append(val) for _ in range(diff)]
+            lines_len += diff
+        for num, i in enumerate(data['data'], num - 1):
+            method(lines, num, i)
+
+
+def handle_txt_data(lines, num, data):
+    lines[num] = ' '.join(ok_list_str(data)) + '\n'
+
+
+def handle_jsonl_data(lines, num, data):
+    from json import dumps
+    lines[num] = data if isinstance(data, str) else dumps(data) + '\n'
+
+
+def handle_json_data(lines, num, data):
+    if isinstance(data, dict):
+        for k, d in data.items():
+            data[k] = process_content_json(d)
+        lines[num] = data
+    else:
+        lines[num] = [process_content_json(d) for d in data]
 
 
 def get_header(recorder, ws=None):

@@ -7,7 +7,7 @@ _header格式：{表名: Header对象}
 from csv import writer as csv_writer
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Optional, Union, List, Dict, Tuple
+from typing import Any, Optional, Union, List, Dict, Tuple, Callable
 
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -300,6 +300,47 @@ class Recorder(BaseRecorder):
     def _to_json_slow(self) -> None:
         """记录数据到json文件"""
         ...
+
+
+def handle_txt_lines(data_lst: list, lines: list, val: Any, method: Callable) -> None:
+    """txt、json、jsonl格式相同的写入逻辑
+    :param data_lst: 数据总列表
+    :param lines: readlines()从文件读取的原数据列表
+    :param val: 插入空行时的值
+    :param method: 处理单个数据使用的方法
+    :return: None
+    """
+    ...
+
+
+def handle_txt_data(lines: list, num: int, data: Union[dict, list]) -> None:
+    """处理txt格式单个数据的方法，对应handle_txt_lines()的method
+    :param lines: list格式的文件数据
+    :param num: 行号
+    :param data: 要写入的数据
+    :return: None
+    """
+    ...
+
+
+def handle_jsonl_data(lines: list, num: int, data: Union[dict, list]) -> None:
+    """处理jsonl格式单个数据的方法，对应handle_txt_lines()的method
+    :param lines: list格式的文件数据
+    :param num: 行号
+    :param data: 要写入的数据
+    :return: None
+    """
+    ...
+
+
+def handle_json_data(lines: list, num: int, data: Union[dict, list]) -> None:
+    """处理json格式单个数据的方法，对应handle_txt_lines()的method
+    :param lines: list格式的文件数据
+    :param num: 行号
+    :param data: 要写入的数据
+    :return: None
+    """
+    ...
 
 
 def get_header(recorder: Recorder, ws: Worksheet = None) -> Header: ...
