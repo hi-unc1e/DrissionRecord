@@ -6,11 +6,11 @@ from time import sleep
 from openpyxl.reader.excel import load_workbook
 
 from .base import BaseRecorder
-from .cell_style import CellStyleCopier, NoneStyle
+from .cell_style import NoneStyle
 from .setter import RecorderSetter, set_csv_header
-from .tools import (ok_list_str, process_content_xlsx, process_content_json,  # process_content_str,
-                    get_key_cols, Header, get_wb, get_ws, get_csv, parse_coord, do_nothing, line2ws, styles2new_rows,
-                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, twoD2ws, oneD2ws, style2ws)
+from .tools import (ok_list_str, process_content_xlsx, process_content_json, get_key_cols,
+                    get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
+                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, style2ws, get_real_row)
 
 
 class Recorder(BaseRecorder):
@@ -20,23 +20,24 @@ class Recorder(BaseRecorder):
         self._header = {None: None}
         self._methods = {'xlsx': self._to_xlsx_fast,
                          'csv': self._to_csv_fast,
-                         'txt': self._to_txt,
-                         'jsonl': self._to_jsonl,
-                         'json': self._to_json,
+                         'txt': self._to_txt_fast,
+                         'jsonl': self._to_jsonl_fast,
+                         'json': self._to_json_fast,
+
                          'setImg': do_nothing,
                          'setLink': do_nothing,
                          'setStyle': do_nothing,
                          'setHeight': do_nothing,
                          'setWidth': do_nothing,
                          }
-        self._slow_methods = {'setImg': img2ws,
+        self._xlsx_methods = {'setImg': img2ws,
                               'setLink': link2ws,
                               'setStyle': style2ws,
                               'setHeight': height2ws,
                               'setWidth': width2ws,
-                              '2D': twoD2ws,
-                              'data': oneD2ws}
+                              'data': data2ws}
         super().__init__(path=path, cache_size=cache_size)
+        self._data = {None: []}
         self._delimiter = ','  # csv文件分隔符
         self._quote_char = '"'  # csv文件引用符
         self._follow_styles = False
@@ -48,8 +49,7 @@ class Recorder(BaseRecorder):
         self.data_col = 1
 
     def _set_methods(self, file_type):
-        method = f'_to_{file_type}_fast' if hasattr(self, f'_to_{file_type}_fast') else f'_to_{file_type}'
-        self._methods[file_type] = getattr(self, method)
+        self._methods[file_type] = getattr(self, f'_to_{file_type}_fast')
         if file_type == 'xlsx':
             self._methods['setImg'] = self._set_img
             self._methods['setLink'] = self._set_link
@@ -87,16 +87,62 @@ class Recorder(BaseRecorder):
         coord = parse_coord(coord, self.data_col)
         data, data_len = self._handle_data(data, coord)
         self._add(data, table,
-                  True if self._fast and coord[0] and self._type in ('csv', 'xlsx') else False,
-                  data_len)
+                  True if self._fast and coord[0] else False,  # xlsx不需要fast模式
+                  data_len, self._add_data)
+
+    def _handle_data(self, data, coord):
+        if is_sigal_data(data):
+            data = {'type': 'data', 'data': [self._make_final_data(self, (data,))], 'coord': coord}
+            data_len = 1
+        elif not data:
+            data = {'type': 'data', 'data': [self._make_final_data(self, tuple())], 'coord': coord}
+            data_len = 1
+        elif is_1D_data(data):
+            data = {'type': 'data', 'data': [self._make_final_data(self, data)], 'coord': coord}
+            data_len = 1
+        else:  # 二维数组
+            data = {'type': 'data', 'coord': coord,
+                    'data': [self._make_final_data(self, (d,)) if is_sigal_data(d)
+                             else self._make_final_data(self, d) for d in data]}
+            data_len = len(data)
+        return data, data_len
+
+    def _add(self, data, table, to_slow, num, add_method):
+        while self._pause_add:  # 等待其它线程写入结束
+            sleep(.02)
+
+        if to_slow:
+            self._slow_mode()
+
+        if table is None:
+            table = self._table
+        elif table is True:
+            table = None
+
+        add_method(data, table)
+
+        self._data_count += num
+        if 0 < self.cache_size <= self._data_count:
+            self.record()
+
+    def _add_data(self, data, table):  # todo: 增加文本文件fast模式，无需判断
+        if (self._data.get(table, 0) != 0 and self._data[table]
+                and data['coord'] == self._data[table][-1]['coord']
+                and self._data[table][-1]['type'] == 'data'):
+            self._data[table][-1]['data'].extend(data['data'])
+        else:
+            self._data.setdefault(table, []).append(data)
+
+    def _add_others(self, data, table):
+        self._data.setdefault(table, []).append(data)
 
     def _set_link(self, coord, link, content=None, table=None):
-        self._add([{'type': 'setLink', 'link': link, 'content': content,
-                    'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
+        self._add({'type': 'setLink', 'link': link, 'content': content,
+                   'coord': parse_coord(coord, self.data_col)}, table, self._fast, 1, self._add_others)
 
     def _set_img(self, coord, img_path, width=None, height=None, table=None):
-        self._add([{'type': 'setLink', 'imgPath': img_path, 'width': width, 'height': height,
-                    'coord': parse_coord(coord, self.data_col)}], table, self._fast, 1)
+        self._add({'type': 'setLink', 'imgPath': img_path, 'width': width, 'height': height,
+                   'coord': parse_coord(coord, self.data_col)}, table, self._fast, 1, self._add_others)
 
     def _set_styles(self, coord, styles, replace=True, table=None):
         if isinstance(coord, str):
@@ -110,40 +156,18 @@ class Recorder(BaseRecorder):
             real, coord = coord, (1, 1)
         else:
             real, coord = None, parse_coord(coord, self.data_col)
-        self._add([{'type': 'setStyle', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
-                    'styles': styles, 'coord': coord}], table, self._fast, 1)
+        self._add({'type': 'setStyle', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
+                   'styles': styles, 'coord': coord}, table, self._fast, 1, self._add_others)
 
     def _set_row_height(self, row, height, table=None):
         if not row:
             raise ValueError('row不能为0或None。')
-        self._add([{'type': 'setHeight', 'row': row, 'height': height}], table, self._fast, 1)
+        self._add({'type': 'setHeight', 'row': row, 'height': height}, table, self._fast, 1, self._add_others)
 
     def _set_col_width(self, col, width, table=None):
         if not col:
             raise ValueError('col不能为0或None。')
-        self._add([{'type': 'setWidth', 'col': col, 'width': width}], table, self._fast, 1)
-
-    def _add(self, data, table, to_slow, num):
-        while self._pause_add:  # 等待其它线程写入结束
-            sleep(.02)
-
-        if to_slow:
-            self._slow_mode()
-
-        if self._type == 'xlsx':
-            if table is None:
-                table = self._table
-            elif table is True:
-                table = None
-            self._data.setdefault(table, []).extend(data)
-        elif self._type:
-            self._data.extend(data)
-        else:
-            raise RuntimeError('请设置文件路径。')
-
-        self._data_count += num
-        if 0 < self.cache_size <= self._data_count:
-            self.record()
+        self._add({'type': 'setWidth', 'col': col, 'width': width}, table, self._fast, 1, self._add_others)
 
     def set_link(self, coord, link, content=None, table=None):
         self._methods['setLink'](coord, link, content, table)
@@ -196,31 +220,8 @@ class Recorder(BaseRecorder):
                       sign=signs, deny_sign=deny_sign, count=count, ws=ws)
 
     def clear(self):
-        super().clear()
-
-    def _handle_data(self, data, coord):
-        if is_sigal_data(data):
-            data = [{'type': 'data', 'data': self._handle_data_method(self, (data,)), 'coord': coord}]
-            data_len = 1
-        elif not data:
-            data = [{'type': 'data', 'data': self._handle_data_method(self, tuple()), 'coord': coord}]
-            data_len = 1
-        elif is_1D_data(data):
-            data = [{'type': 'data', 'data': self._handle_data_method(self, data), 'coord': coord}]
-            data_len = 1
-        else:  # 二维数组
-            if not coord[0] and self._fast:
-                data = [{'type': 'data', 'coord': coord,
-                         'data': (self._handle_data_method(self, (d,)) if is_sigal_data(d)
-                                  else self._handle_data_method(self, d))}
-                        for d in data]
-                data_len = len(data)
-            else:
-                data = [self._handle_data_method(self, (d,)) if is_sigal_data(d)
-                        else self._handle_data_method(self, d) for d in data]
-                data = [{'type': '2Ddata', 'data': data, 'coord': coord}]
-                data_len = 1
-        return data, data_len
+        self._data_count = 0
+        self._data = {None: []}
 
     def _record(self):
         self._methods[self.type]()
@@ -228,60 +229,20 @@ class Recorder(BaseRecorder):
             self._fast_mode()
 
     def _fast_mode(self):
-        self._methods['xlsx'] = self._to_xlsx_fast
         self._methods['csv'] = self._to_csv_fast
+        self._methods['txt'] = self._to_txt_fast
+        self._methods['json'] = self._to_json_fast
+        self._methods['jsonl'] = self._to_jsonl_fast
         self._fast = True
 
     def _slow_mode(self):
-        self._methods['xlsx'] = self._to_xlsx_slow
         self._methods['csv'] = self._to_csv_slow
+        self._methods['txt'] = self._to_txt_slow
+        self._methods['json'] = self._to_json_slow
+        self._methods['jsonl'] = self._to_jsonl_slow
         self._fast = False
 
     def _to_xlsx_fast(self):
-        wb, new_file = get_wb(self)
-        tables = wb.sheetnames
-        rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
-
-        for table, data in self._data.items():
-            _row_styles = None
-            _row_height = None
-            ws, new_sheet = get_ws(wb, table, tables, new_file)
-            new_file = False
-            if table is None and ws.title not in self._header:
-                self._header[ws.title] = self._header[None]
-
-            if new_sheet:
-                begin_row = handle_new_sheet(self, ws, data)
-            elif self._header.get(ws.title, None) is None:
-                self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
-                begin_row = ws.max_row
-            else:
-                begin_row = ws.max_row
-
-            begin_row += 1
-            rewrite = False
-            header = self._header[ws.title]
-            for row, d in enumerate(data, begin_row):
-                rewrite = line2ws(ws, header, row,
-                                  (get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
-                                   if d['coord'][1] < 1 else d['coord'][1]),
-                                  d['data'], rewrite_method, rewrite)
-
-            if rewrite:
-                for c in range(1, ws.max_column + 1):
-                    ws.cell(self._header_row, c, value=header[c])
-
-            if self._styles or self._row_height:
-                styles2new_rows(ws, self._styles, self._row_height, begin_row, row, header)
-            elif self._follow_styles and begin_row > 0:
-                styles = [CellStyleCopier(i) for i in ws[begin_row]]
-                height = ws.row_dimensions[begin_row - 1].height
-                styles2new_rows(ws, styles, height, begin_row, row, header)
-
-        wb.save(self.path)
-        wb.close()
-
-    def _to_xlsx_slow(self):
         wb, new_file = get_wb(self)
         tables = wb.sheetnames
         rewrite_method = 'make_num_dict_rewrite' if self._auto_new_header else 'make_num_dict'
@@ -300,9 +261,9 @@ class Recorder(BaseRecorder):
 
             header = self._header[ws.title]
             rewrite = False
-            if not begin_row and not data['coord'][0]:
+            if not begin_row and not data[0]['coord'][0]:
                 cur = data[0]
-                rewrite = self._slow_methods[cur['type']](
+                rewrite = self._xlsx_methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
@@ -314,7 +275,7 @@ class Recorder(BaseRecorder):
                 data = data[1:]
 
             for cur in data:
-                rewrite = self._slow_methods[cur['type']](
+                rewrite = self._xlsx_methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
@@ -339,12 +300,12 @@ class Recorder(BaseRecorder):
 
         rewrite = False
         header = self._header[None]
-        for d in self._data:
-            i, rewrite = header.__getattribute__(rewrite_method)(d['data'], 'csv', rewrite)
-            if d['coord'][1] != 1:
-                col = get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
-                i = [None] * (col - 1) + i
-            writer.writerow(i)
+        for d in self._data[None]:
+            col = 1 if d['coord'][1] == 1 else get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
+            for data in d['data']:
+                data, rewrite = header.__getattribute__(rewrite_method)(data, 'csv', rewrite)
+                data = [None] * (col - 1) + data
+                writer.writerow(data)
         file.close()
 
         if rewrite:
@@ -362,8 +323,8 @@ class Recorder(BaseRecorder):
 
         rewrite = False
         method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
-        for i in self._data:
-            data = i['data'] if i['type'] == '2Ddata' else (i['data'],)
+        for i in self._data[None]:
+            data = i['data']
             row, col = get_real_coord(i['coord'], lines_count, len(header) if self._header_row > 0 else 1)
             for r, da in enumerate(data, row):
                 add_rows = r - lines_count
@@ -383,18 +344,24 @@ class Recorder(BaseRecorder):
                             delimiter=self.delimiter, quotechar=self.quote_char)
         writer.writerows(lines)
 
-    def _to_txt(self):
+    def _to_txt_fast(self):
         with open(self.path, 'a+', encoding=self.encoding) as f:
-            all_data = [' '.join(ok_list_str(i['data'])) for i in self._data]
+            all_data = []
+            for data in self._data[None]:
+                for d in data['data']:
+                    all_data.append(' '.join(ok_list_str(d)))
             f.write('\n'.join(all_data) + '\n')
 
-    def _to_jsonl(self):
+    def _to_jsonl_fast(self):
         from json import dumps
         with open(self.path, 'a+', encoding=self.encoding) as f:
-            all_data = [i['data'] if isinstance(i['data'], str) else dumps(i['data']) for i in self._data]
+            all_data = []
+            for data in self._data[None]:
+                for d in data['data']:
+                    all_data.append(d if isinstance(d, str) else dumps(d))
             f.write('\n'.join(all_data) + '\n')
 
-    def _to_json(self):
+    def _to_json_fast(self):
         from json import load, dump
         if self._file_exists or Path(self.path).exists():
             with open(self.path, 'r', encoding=self.encoding) as f:
@@ -402,7 +369,70 @@ class Recorder(BaseRecorder):
         else:
             json_data = []
 
-        for i in self._data:
+        for i in self._data[None]:
+            for data in i['data']:
+                if isinstance(data, dict):
+                    for k, d in data.items():
+                        data[k] = process_content_json(d)
+                    json_data.append(data)
+                else:
+                    json_data.append([process_content_json(d) for d in i])
+
+        with open(self.path, 'w', encoding=self.encoding) as f:
+            dump(json_data, f)
+
+    def _to_txt_slow(self):
+        if not self._file_exists and not Path(self.path).exists():
+            with open(self.path, 'w', encoding=self.encoding):
+                pass
+
+        with open(self.path, 'r+', encoding=self.encoding) as f:
+            lines = f.readlines()
+            lines_len = len(lines)
+            for data in self._data[None]:
+                num = get_real_row(data['coord'][0], lines_len)
+                if lines_len < num + len(data['data']):
+                    diff = num + len(data['data']) - lines_len - 1
+                    [lines.append('\n') for _ in range(diff)]
+                    lines_len += diff
+
+                for num, d in enumerate(data['data'], num - 1):
+                    lines[num] = ' '.join(ok_list_str(d)) + '\n'
+
+            f.seek(0)
+            f.writelines(lines)
+
+    def _to_jsonl_slow(self):
+        from json import dumps
+        if not self._file_exists and not Path(self.path).exists():
+            with open(self.path, 'w', encoding=self.encoding):
+                pass
+
+        with open(self.path, 'r+', encoding=self.encoding) as f:
+            lines = f.readlines()
+            lines_len = len(lines)
+            for data in self._data[None]:
+                num = get_real_row(data['coord'][0], lines_len)
+                if lines_len < num + len(data['data']):
+                    diff = num + len(data['data']) - lines_len - 1
+                    [lines.append('\n') for _ in range(diff)]
+                    lines_len += diff
+
+                for num, d in enumerate(data['data'], num - 1):
+                    lines[num] = d if isinstance(d, str) else dumps(d) + '\n'
+
+            f.seek(0)
+            f.writelines(lines)
+
+    def _to_json_slow(self):
+        from json import load, dump
+        if self._file_exists or Path(self.path).exists():
+            with open(self.path, 'r', encoding=self.encoding) as f:
+                json_data = load(f)
+        else:
+            json_data = []
+
+        for i in self._data[None]:
             i = i['data']
             if isinstance(i, dict):
                 for d in i:
@@ -411,7 +441,6 @@ class Recorder(BaseRecorder):
             else:
                 json_data.append([process_content_json(d) for d in i])
 
-        self._file_exists = True
         with open(self.path, 'w', encoding=self.encoding) as f:
             dump(json_data, f)
 
@@ -481,10 +510,8 @@ def handle_new_sheet(recorder, ws, data):
 def get_first_dict(data):
     if not data:
         return False
-    elif data[0]['type'] == 'data' and isinstance(data[0]['data'], dict):
-        return data[0]['data']
-    elif data[0]['type'] == '2Ddata' and data[0]['data'] and isinstance(data[0]['data'][0], dict):
-        return data[0]['data'][0]['data']
+    elif data[0]['type'] == 'data' and data[0]['data'] and isinstance(data[0]['data'][0], dict):
+        return data[0]['data'][0]
 
 
 def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sign, count, ws):

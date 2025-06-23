@@ -36,18 +36,14 @@ def line2ws_follow(ws, header, row, col, data, rewrite_method, rewrite, styles):
     return rewrite
 
 
-def twoD2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+def data2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
     row, col = coord
     for r, d in enumerate(data, row):
         rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
     return rewrite
 
 
-def oneD2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
-    return recorder._slow_methods['2D'](recorder, ws, [data, ], coord, header, rewrite, rewrite_method, new_row)
-
-
-def twoD2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+def data2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
     row, col = coord
     if row > 1:
         styles = {ind: CellStyleCopier(cell) for ind, cell in enumerate(ws[row - 1], 1)}
@@ -61,7 +57,7 @@ def twoD2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, n
     return rewrite
 
 
-def twoD2ws_style(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
+def data2ws_style(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
     row, col = coord
     if new_row:
         for r, d in enumerate(data, row):
@@ -658,6 +654,12 @@ def ok_list_db(data_list):
     return [process_content_json(i) for i in data_list]
 
 
+def get_real_row(row, max_row):
+    if row <= 0:
+        row = max_row + row + 1
+    return 1 if row < 1 else row
+
+
 def get_real_col(col, max_col):
     if col <= 0:
         col = max_col + col + 1
@@ -666,16 +668,14 @@ def get_real_col(col, max_col):
 
 def get_real_coord(coord, max_row, max_col):
     row, col = coord
-    if row <= 0:
-        row = max_row + row + 1
-    return 1 if row < 1 else row, get_real_col(col, max_col)
+    return get_real_row(row, max_row), get_real_col(col, max_col)
 
 
-def data_to_list_or_dict_simplify(recorder, data):
+def make_final_data_simplify(recorder, data):
     return data if isinstance(data, (dict, list, tuple)) else list(data)
 
 
-def data_to_list_or_dict(recorder, data):
+def make_final_data(recorder, data):
     if isinstance(data, dict):
         if isinstance(recorder.before, dict):
             data = {**recorder.before, **data}
@@ -710,7 +710,6 @@ def _set_style(height, styles, ws, row):
 
 
 def get_csv(recorder):
-    recorder._file_exists = True
     return (open(recorder.path, 'a+', newline='', encoding=recorder.encoding),
             not (recorder._file_exists or Path(recorder.path).exists()))
 
@@ -722,7 +721,6 @@ def get_wb(recorder):
     else:
         wb = Workbook()
         new_file = True
-    recorder._file_exists = True
     return wb, new_file
 
 

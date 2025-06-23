@@ -5,7 +5,7 @@ from threading import Lock
 from time import sleep
 
 from .setter import OriginalSetter, BaseSetter
-from .tools import get_usable_path, make_valid_name, get_tables, data_to_list_or_dict_simplify
+from .tools import get_usable_path, make_valid_name, get_tables, make_final_data_simplify
 
 
 class OriginalRecorder(object):
@@ -111,6 +111,7 @@ class OriginalRecorder(object):
 
         if self._backup_interval:
             self._backup_times += 1
+        self._file_exists = True
         return self._path
 
     def clear(self):
@@ -152,7 +153,7 @@ class BaseRecorder(OriginalRecorder):
         self._after = []
         self._encoding = 'utf-8'
         self._table = None
-        self._handle_data_method = data_to_list_or_dict_simplify
+        self._make_final_data = make_final_data_simplify
         self._auto_new_header = False
 
     @property

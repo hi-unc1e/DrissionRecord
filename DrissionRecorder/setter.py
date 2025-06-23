@@ -5,8 +5,8 @@ from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
 
 from .cell_style import CellStyle
-from .tools import (make_valid_name, data_to_list_or_dict_simplify, data_to_list_or_dict,
-                    Header, ZeroHeader, process_content_xlsx, ok_list_str, twoD2ws_follow, twoD2ws, twoD2ws_style)
+from .tools import (make_valid_name, make_final_data_simplify, make_final_data,
+                    Header, ZeroHeader, process_content_xlsx, ok_list_str, data2ws_follow, data2ws, data2ws_style)
 
 
 class OriginalSetter(object):
@@ -66,9 +66,9 @@ class BaseSetter(OriginalSetter):
             data = [data]
         setattr(self._recorder, '_before' if before else '_after', data)
         if self._recorder._after or self._recorder._before:
-            self._recorder._handle_data_method = data_to_list_or_dict
+            self._recorder._make_final_data = make_final_data
         else:
-            self._recorder._handle_data_method = data_to_list_or_dict_simplify
+            self._recorder._make_final_data = make_final_data_simplify
         return self
 
 
@@ -94,6 +94,8 @@ class RecorderSetter(BaseSetter):
                 self._recorder._header[None] = header
                 if to_file:
                     set_csv_header(self._recorder, header, row)
+            else:
+                self._recorder._header[None] = header
 
         return self
 
@@ -127,17 +129,8 @@ class RecorderSetter(BaseSetter):
             file_type = 'txt'
         self._recorder._type = file_type
         self._recorder._set_methods(file_type)
-
-        if file_type == 'xlsx' and isinstance(self._recorder._data, list):
-            self._recorder._data = {self._recorder._table: self._recorder._data} if self._recorder._data else {}
-        elif file_type != 'xlsx':
-            if isinstance(self._recorder._data, dict):
-                self._recorder._data = (self._recorder._data[self._recorder._table]
-                                        if self._recorder._data.get(self._recorder._table, None) else [])
-            if len(self._recorder._header) > 1:
-                self._recorder._header = {None: self._recorder._header[None]}
+        if file_type != 'xlsx':
             self._recorder._table = None
-
         return self
 
     def table(self, name):
@@ -151,28 +144,28 @@ class RecorderSetter(BaseSetter):
         if on_off:
             self._recorder._styles = None
             self._recorder._row_height = None
-            self._recorder._slow_methods['2D'] = twoD2ws_follow
+            self._recorder._xlsx_methods['data'] = data2ws_follow
         else:
-            self._recorder._slow_methods['2D'] = twoD2ws
+            self._recorder._xlsx_methods['data'] = data2ws
         return self
 
     def new_row_height(self, height):
         self._recorder._row_height = height
         if height is not None:
-            self._recorder._follow_styles = None
-            self._recorder._slow_methods['2D'] = twoD2ws_style
+            self._recorder._follow_styles = False
+            self._recorder._xlsx_methods['data'] = data2ws_style
         else:
-            self._recorder._slow_methods['2D'] = twoD2ws
+            self._recorder._xlsx_methods['data'] = data2ws
         return self
 
     def new_row_styles(self, styles):
         self._recorder.record()
         self._recorder._styles = styles
         if styles is not None:
-            self._recorder._follow_styles = None
-            self._recorder._slow_methods['2D'] = twoD2ws_style
+            self._recorder._follow_styles = False
+            self._recorder._xlsx_methods['data'] = data2ws_style
         else:
-            self._recorder._slow_methods['2D'] = twoD2ws
+            self._recorder._xlsx_methods['data'] = data2ws
         return self
 
     def data_col(self, col):

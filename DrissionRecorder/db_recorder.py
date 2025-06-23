@@ -144,16 +144,16 @@ class DBRecorder(BaseRecorder):
 
     def _handle_data(self, data):
         if is_sigal_data(data):
-            data = (self._handle_data_method(self, (data,)),)
+            data = (self._make_final_data(self, (data,)),)
             self._data_count += 1
         elif not data:
-            data = (self._handle_data_method(self, tuple()),)
+            data = (self._make_final_data(self, tuple()),)
             self._data_count += 1
         elif is_1D_data(data):
-            data = [self._handle_data_method(self, data)]
+            data = [self._make_final_data(self, data)]
             self._data_count += 1
         else:  # 二维数组
-            data = [self._handle_data_method(self, (d,)) if is_sigal_data(d)
-                    else self._handle_data_method(self, d) for d in data]
+            data = [self._make_final_data(self, (d,)) if is_sigal_data(d)
+                    else self._make_final_data(self, d) for d in data]
             self._data_count += len(data)
         return data

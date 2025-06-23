@@ -19,19 +19,15 @@ def line2ws_follow(ws: Worksheet, header: Header, row: int, col: int, data: Unio
                    rewrite: bool, styles: Dict[int, CellStyleCopier]) -> bool: ...
 
 
-def twoD2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+def data2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
             header: Header, rewrite: bool, rewrite_method: str) -> bool: ...
 
 
-def oneD2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
-            header: Header, rewrite: bool, rewrite_method: str) -> None: ...
-
-
-def twoD2ws_follow(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+def data2ws_follow(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
                    header: Header, rewrite: bool, rewrite_method: str) -> None: ...
 
 
-def twoD2ws_style(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
+def data2ws_style(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
                   header: Header, rewrite: bool, rewrite_method: str) -> None:
     """处理有指定默认单元格样式的情况"""
     ...
@@ -282,6 +278,15 @@ def ok_list_db(data_list: Iterable) -> list:
     ...
 
 
+def get_real_row(row: int, max_row: int):
+    """获取返回真正写入文件的行号
+    :param row: 输入的行号
+    :param max_row: 最大行号
+    :return: 真正的行号
+    """
+    ...
+
+
 def get_real_col(col: int, max_col: int):
     """获取返回真正写入文件的列序号
     :param col: 输入的列序号
@@ -303,7 +308,7 @@ def get_real_coord(coord: Union[tuple, list],
     ...
 
 
-def data_to_list_or_dict_simplify(recorder: BaseRecorder,
+def make_final_data_simplify(recorder: BaseRecorder,
                                   data: Union[list, tuple, dict, None]) -> Union[list, dict]:
     """将传入的数据转换为列表或字典形式，不添加前后列数据
     :param recorder: BaseRecorder对象
@@ -313,7 +318,7 @@ def data_to_list_or_dict_simplify(recorder: BaseRecorder,
     ...
 
 
-def data_to_list_or_dict(recorder: BaseRecorder, data: Iterable) -> Union[list, dict]:
+def make_final_data(recorder: BaseRecorder, data: Iterable) -> Union[list, dict]:
     """将传入的一维数据转换为列表或字典形式，添加前后列数据
     :param recorder: BaseRecorder对象
     :param data: 要处理的数据

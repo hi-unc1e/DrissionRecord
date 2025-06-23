@@ -30,9 +30,8 @@ class ByteRecorder(OriginalRecorder):
 
     def _record(self):
         if not self._file_exists and not Path(self.path).exists():
-            with open(self.path, 'w'):
+            with open(self.path, 'wb'):
                 pass
-            self._file_exists = True
 
         with open(self.path, 'rb+') as f:
             previous = None
