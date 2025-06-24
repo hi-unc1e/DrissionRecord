@@ -22,7 +22,7 @@ def line2ws(ws, header, row, col, data, rewrite_method, rewrite):
     return rewrite
 
 
-def line2ws_follow(ws, header, row, col, data, rewrite_method, rewrite, styles):
+def line2ws_style(ws, header, row, col, data, rewrite_method, rewrite, styles):
     if isinstance(data, dict):
         data, rewrite, header_len = header.__getattribute__(rewrite_method)(data, 'xlsx', rewrite)
         for c, val in data.items():
@@ -48,7 +48,7 @@ def data2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, n
     if row > 1:
         styles = {ind: CellStyleCopier(cell) for ind, cell in enumerate(ws[row - 1], 1)}
         for r, d in enumerate(data, row):
-            rewrite = line2ws_follow(ws, header, r, col, d, rewrite_method, rewrite, styles)
+            rewrite = line2ws_style(ws, header, r, col, d, rewrite_method, rewrite, styles)
 
     else:
         for r, d in enumerate(data, row):
@@ -87,7 +87,7 @@ def styles2new_rows(ws, styles, height, begin_row, end_row, header):
                     s.to_cell(ws.cell(row=r, column=c))
 
 
-def style2ws(**kwargs):
+def styles2ws(**kwargs):
     ws = kwargs['ws']
     header = kwargs['header']
     data = kwargs['data']
@@ -317,7 +317,7 @@ class Header(BaseHeader):
     def make_insert_list(self, data, file_type, rewrite):
         if isinstance(data, dict):
             data = self.make_num_dict(data, file_type)[0]
-            data = [data.get(i, None) for i in range(1, max(max(data), len(self.num_key)) + 1)]
+            data = [data.get(i, None) for i in range(1, max(max(data), len(self.num_key)) + 1)] if data else []
         else:
             data = [self._CONTENT_FUNCS[file_type](v) for v in data]
         return data, False
@@ -710,8 +710,8 @@ def _set_style(height, styles, ws, row):
 
 
 def get_csv(recorder):
-    return (open(recorder.path, 'a+', newline='', encoding=recorder.encoding),
-            not (recorder._file_exists or Path(recorder.path).exists()))
+    new_csv = not recorder._file_exists and not Path(recorder.path).exists()
+    return open(recorder.path, 'a+', newline='', encoding=recorder.encoding), new_csv
 
 
 def get_wb(recorder):

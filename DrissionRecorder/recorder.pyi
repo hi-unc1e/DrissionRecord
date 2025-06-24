@@ -7,7 +7,7 @@ _header格式：{表名: Header对象}
 from csv import writer as csv_writer
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Optional, Union, List, Dict, Tuple, Callable
+from typing import Any, Optional, Union, List, Dict, Tuple, Callable, Iterable
 
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -28,7 +28,6 @@ class Recorder(BaseRecorder):
     _header_row: int = ...
     _fast: bool = ...
     _methods: dict = ...
-    _xlsx_methods: dict = ...
     _link_style: Optional[CellStyle] = ...
     _data: Dict[Optional[str], list] = ...
     data: Dict[Optional[str], list] = ...
@@ -41,7 +40,9 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_methods(self, file_type: str) -> None: ...
+    def _set_methods(self, file_type: str) -> None:
+        """设置各种情况下使用的方法"""
+        ...
 
     @property
     def set(self) -> RecorderSetter:
@@ -73,10 +74,6 @@ class Recorder(BaseRecorder):
         :return: None
         """
         ...
-
-    def _add_data_fast(self, *args) -> None: ...
-
-    def _add_data_slow(self, *args) -> None: ...
 
     def set_link(self,
                  coord: Union[int, str, tuple, list],
@@ -216,10 +213,21 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _add_data(self, data, table):
+    def _add_data(self, data: dict, table: Optional[str]) -> None:
+        """添加data到_data的操作
+        :param data: 数据
+        :param table: 要添加数据的表
+        :return: None
+        """
         ...
 
-    def _add_others(self, data, table): ...
+    def _add_others(self, data: dict, table: Optional[str]) -> None:
+        """添加style、link等到_data的操作
+        :param data: 数据
+        :param table: 要添加数据的表
+        :return: None
+        """
+        ...
 
     def rows(self,
              key_cols: Union[str, int, list, tuple, bool] = True,
@@ -233,7 +241,7 @@ class Recorder(BaseRecorder):
         :param key_cols: 作为关键字的列，可以是多列，为True获取所有列
         :param sign_col: 用于筛选数据的列，为True获取所有行
         :param is_header: key_cols和sign_col是str时，表示header值还是列名
-        :param signs: 按这个值判断是否已填数据，可用list, tuple, set设置多个
+        :param signs: 按这个值筛选目标行，可用list, tuple, set设置多个
         :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
         :param count: 获取多少条数据，为None获取所有
         :param begin_row: 数据开始的行，None表示header_row后面一行
@@ -343,61 +351,162 @@ def handle_json_data(lines: list, num: int, data: Union[dict, list]) -> None:
     ...
 
 
-def get_header(recorder: Recorder, ws: Worksheet = None) -> Header: ...
+def get_header(recorder: Recorder, ws: Worksheet = None) -> Header:
+    """获取当前指定的table的header
+    :param recorder: Recorder对象
+    :param ws: Worksheet对象
+    :return: Header对象
+    """
+    ...
 
 
-def handle_new_sheet(recorder: Recorder, ws: Worksheet, data: Union[tuple, list, None]) -> int:
-    """已有表头信息时向新表写入表头"""
+def handle_new_sheet(recorder: Recorder, ws: Worksheet, data: list) -> int:
+    """从设置或第一条dict数据获取表头并向新表写入
+    :param recorder: Recorder对象
+    :param ws: 数据表对象
+    :param data: 对应数据表的数据列表
+    :return: 开始写数据的行的前一行
+    """
     ...
 
 
 def get_first_dict(data: list) -> dict:
-    """判断数据集第一条是否dict，如果第一条是二维数据，判断其第一条是否dict，是则返回它"""
+    """判断数据集第一条是否dict，如果第一条是二维数据，判断其第一条是否dict，是则返回它
+    :param data: 数据列表
+    :return: 第一条dict格式数据
+    """
     ...
 
 
 def get_xlsx_rows(recorder: Recorder,
                   header: Header, key_cols: Union[list, True],
                   begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
-                  deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]: ...
+                  deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+    """获取xlsx文件指定行数据
+    :param recorder: Recorder对象
+    :param header: Header对象
+    :param key_cols: 要获取的列，为True获取所有，可指定多列
+    :param begin_row: 开始行号
+    :param sign_col: 作为条件的列
+    :param sign: 按这个值筛选目标行，可设置多个
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param count: 获取多少条数据，为None获取所有
+    :param ws: Worksheet对象
+    :return: 获取到的数据列表
+    """
+    ...
 
 
 def get_csv_rows(recorder: Recorder,
                  header: Header, key_cols: Union[list, True],
                  begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
-                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]: ...
+                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+    """获取xlsx文件指定行数据
+    :param recorder: Recorder对象
+    :param header: Header对象
+    :param key_cols: 要获取的列，为True获取所有，可指定多列
+    :param begin_row: 开始行号
+    :param sign_col: 作为条件的列
+    :param sign: 按这个值筛选目标行，可设置多个
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param count: 获取多少条数据，为None获取所有
+    :param ws: 与get_xlsx_rows()对应
+    :return: 获取到的数据列表
+    """
+    ...
 
 
-def handle_xlsx_rows_with_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows,
-                                begin_row: Optional[int], sign_col,
-                                sign, count: int) -> List[RowData]: ...
+def get_xlsx_rows_with_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows: Iterable,
+                             begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
+                             count: int) -> List[RowData]:
+    """执行从xlsx中获取数据，有指定数量
+    :param key_cols: 要获取的列，True为所有
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param header: Header对象
+    :param rows: 行组成的列表
+    :param begin_row: 开始行号
+    :param sign_col: 用于筛选数据的列
+    :param sign: 用于筛选数据的值
+    :param count: 数据总条数
+    :return: 数据对象列表
+    """
+    ...
 
 
-def handle_xlsx_rows_without_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows,
-                                   begin_row: Optional[int],
-                                   sign_col, sign) -> List[RowData]: ...
+def get_xlsx_rows_without_count(key_cols: Union[list, True], deny_sign: bool, header: Header, rows: Iterable,
+                                begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any) -> List[RowData]:
+    """执行从xlsx中获取全部数据
+    :param key_cols: 要获取的列，True为所有
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param header: Header对象
+    :param rows: 行组成的列表
+    :param begin_row: 开始行号
+    :param sign_col: 用于筛选数据的列
+    :param sign: 用于筛选数据的值
+    :return: 数据对象列表
+    """
+    ...
 
 
-def handle_csv_rows_with_count(lines, begin_row: Optional[int], sign_col, sign, deny_sign: bool,
-                               key_cols: Union[list, True], res,
-                               header: Header, count: int) -> List[RowData]: ...
+def get_csv_rows_with_count(lines, begin_row: Optional[int], sign_col, sign, deny_sign: bool,
+                            key_cols: Union[list, True], res, header: Header, count: int) -> List[RowData]:
+    """执行从csv中获取数据，有指定数量
+    :param lines:
+    :param begin_row: 开始行号
+    :param sign_col: 用于筛选数据的列
+    :param sign: 用于筛选数据的值
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param key_cols: 要获取的列，True为所有
+    :param res: 结果列表
+    :param header: Header对象
+    :param count: 数据总条数
+    :return: 数据对象列表
+    """
+    ...
 
 
-def handle_csv_rows_without_count(lines, begin_row: Optional[int], sign_col, sign, deny_sign: bool,
-                                  key_cols: Union[list, True], res,
-                                  header: Header) -> List[RowData]: ...
+def get_csv_rows_without_count(lines, begin_row: Optional[int], sign_col: Union[str, int, bool], sign: Any,
+                               deny_sign: bool, key_cols: Union[list, True], res, header: Header) -> List[RowData]:
+    """执行从csv中获取全部数据
+    :param lines:
+    :param begin_row: 开始行号
+    :param sign_col: 用于筛选数据的列
+    :param sign: 用于筛选数据的值
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param key_cols: 要获取的列，True为所有
+    :param res: 结果列表
+    :param header: Header对象
+    :return: 数据对象列表
+    """
+    ...
 
 
-def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None: ...
+def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None:
+    """从csv获取表头或把已获取的表头设置到新csv
+    :param recorder: Recorder对象
+    :param new_csv: 是否新csv文件
+    :param file: 文件对象
+    :param writer: csv writer对象
+    :return: None
+    """
+    ...
 
 
-def link2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int]) -> None: ...
+def link2ws(**kwargs) -> None:
+    """把擦后入到单元格"""
+    ...
 
 
-def img2ws(ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int]) -> None: ...
+def img2ws(**kwargs) -> None:
+    """把图片到单元格"""
+    ...
 
 
-def width2ws(ws: Worksheet, data: Union[dict, list]) -> None: ...
+def width2ws(**kwargs) -> None:
+    """把列宽设置到数据表"""
+    ...
 
 
-def height2ws(ws: Worksheet, data: Union[dict, list]) -> None: ...
+def height2ws(**kwargs) -> None:
+    """把行高设置到数据表"""
+    ...

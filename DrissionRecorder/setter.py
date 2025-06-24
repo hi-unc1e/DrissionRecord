@@ -144,18 +144,18 @@ class RecorderSetter(BaseSetter):
         if on_off:
             self._recorder._styles = None
             self._recorder._row_height = None
-            self._recorder._xlsx_methods['data'] = data2ws_follow
+            self._recorder._methods['data'] = data2ws_follow
         else:
-            self._recorder._xlsx_methods['data'] = data2ws
+            self._recorder._methods['data'] = data2ws
         return self
 
     def new_row_height(self, height):
         self._recorder._row_height = height
         if height is not None:
             self._recorder._follow_styles = False
-            self._recorder._xlsx_methods['data'] = data2ws_style
+            self._recorder._methods['data'] = data2ws_style
         else:
-            self._recorder._xlsx_methods['data'] = data2ws
+            self._recorder._methods['data'] = data2ws
         return self
 
     def new_row_styles(self, styles):
@@ -163,9 +163,9 @@ class RecorderSetter(BaseSetter):
         self._recorder._styles = styles
         if styles is not None:
             self._recorder._follow_styles = False
-            self._recorder._xlsx_methods['data'] = data2ws_style
+            self._recorder._methods['data'] = data2ws_style
         else:
-            self._recorder._xlsx_methods['data'] = data2ws
+            self._recorder._methods['data'] = data2ws
         return self
 
     def data_col(self, col):

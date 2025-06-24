@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Union, Tuple, Any, Optional, List, Dict, Iterable
+from typing import Union, Tuple, Any, Optional, List, Dict, Iterable, Literal
 
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -10,39 +10,108 @@ from .base import BaseRecorder
 from .cell_style import CellStyle, CellStyleCopier
 from .recorder import Recorder
 
-
-def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
-            rewrite: bool) -> bool: ...
+REWRITE_METHOD = Literal['make_num_dict_rewrite', 'make_num_dict']
 
 
-def line2ws_follow(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: str,
-                   rewrite: bool, styles: Dict[int, CellStyleCopier]) -> bool: ...
+def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list], rewrite_method: REWRITE_METHOD,
+            rewrite: bool) -> bool:
+    """把一行数据写入数据表，不设置样式
+    :param ws: Worksheet对象
+    :param header: Header对象
+    :param row: 行号
+    :param col: 列序号
+    :param data: 行数据
+    :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
+    :param rewrite: 是否重写表头
+    :return: 是否重写表头
+    """
+    ...
 
 
-def data2ws(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
-            header: Header, rewrite: bool, rewrite_method: str) -> bool: ...
+def line2ws_style(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list],
+                  rewrite_method: REWRITE_METHOD, rewrite: bool, styles: Dict[int, CellStyleCopier]) -> bool:
+    """把一行数据写入数据表，并设置样式
+    :param ws: Worksheet对象
+    :param header: Header对象
+    :param row: 行号
+    :param col: 列序号
+    :param data: 行数据
+    :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
+    :param rewrite: 是否重写表头 
+    :param styles: 样式对象了列表
+    :return: 是否重写表头
+    """
+    ...
 
 
-def data2ws_follow(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
-                   header: Header, rewrite: bool, rewrite_method: str) -> None: ...
+def data2ws(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+            header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> bool:
+    """数据写入数据表
+    :param recorder: Recorder对象
+    :param ws: Worksheet对象
+    :param data: 数据组成的列表
+    :param coord: 要写入的坐标
+    :param header: Header对象
+    :param rewrite: 是否重写表头
+    :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
+    :return: 是否重写表头
+    """
+    ...
 
 
-def data2ws_style(recorder: Recorder, ws: Worksheet, data: Union[dict, list], coord: Tuple[int, int],
-                  header: Header, rewrite: bool, rewrite_method: str) -> None:
-    """处理有指定默认单元格样式的情况"""
+def data2ws_follow(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+                   header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> None:
+    """数据写入数据表，跟随上一行样式
+    :param recorder: Recorder对象
+    :param ws: Worksheet对象
+    :param data: 数据组成的列表
+    :param coord: 要写入的坐标
+    :param header: Header对象
+    :param rewrite: 是否重写表头
+    :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
+    :return: 是否重写表头
+    """
+    ...
+
+
+def data2ws_style(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+                  header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> None:
+    """数据写入数据表，并设置指定样式
+    :param recorder: Recorder对象
+    :param ws: Worksheet对象
+    :param data: 数据组成的列表
+    :param coord: 要写入的坐标
+    :param header: Header对象
+    :param rewrite: 是否重写表头
+    :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
+    :return: 是否重写表头
+    """
     ...
 
 
 def styles2new_rows(ws: Worksheet, styles: Union[list, dict, CellStyle],
-                    height: Union[int, float], begin_row: int, end_row: int, header: Header) -> None: ...
+                    height: Union[int, float], begin_row: int, end_row: int, header: Header) -> None:
+    """
+    :param ws: Worksheet对象
+    :param styles: Style对象租车的列表
+    :param height: 行高
+    :param begin_row: 开始行号
+    :param end_row: 结束行号
+    :param header: Header对象
+    :return: None
+    """
+    ...
 
 
-def style2ws(recorder, ws, data, coord, header): ...
+def styles2ws(**kwargs) -> None:
+    """把样式写入数据表"""
+    ...
 
 
 def remove_end_Nones(in_list: list) -> list:
     """去除列表后面所有None
     :param in_list: 要处理的list
+    :return: 处理后的列表
     """
     ...
 
@@ -53,10 +122,14 @@ class BaseHeader(object):
     _CONTENT_FUNCS: dict = ...
 
     @property
-    def key_num(self) -> Dict[str, int]: ...
+    def key_num(self) -> Dict[str, int]:
+        """{str: int}格式的表头数据"""
+        ...
 
     @property
-    def num_key(self) -> Dict[int, str]: ...
+    def num_key(self) -> Dict[int, str]:
+        """{int: str}格式的表头数据"""
+        ...
 
     def __iter__(self): ...
 
@@ -69,12 +142,16 @@ class Header(BaseHeader):
 
     def __len__(self) -> int: ...
 
-    def values(self): ...
+    def values(self):
+        """"""
+        ...
 
-    def items(self): ...
+    def items(self):
+        """"""
+        ...
 
     def make_row_data(self, row: int, row_values: dict, None_val: Optional[''] = None) -> RowData:
-        """
+        """生成RowData对象
         :param row: 行号
         :param row_values: {列序号: 值}
         :param None_val: 空值是None还是''
@@ -123,10 +200,17 @@ class Header(BaseHeader):
         """
         ...
 
-    def make_num_dict(self, data: dict, file_type: Optional[str]) -> Tuple[Dict[int, Any], bool, int]: ...
+    def make_num_dict(self, *keys) -> Tuple[Dict[int, Any], bool, int]:
+        """生成{int: val}的行数据，不考虑是否重写表头
+        :return: (处理后的行数据, 是否重写表头, 表头长度)
+        """
+        ...
 
-    def make_num_dict_rewrite(self, data: dict, file_type: Optional[str],
-                              rewrite: bool) -> Tuple[Dict[int, Any], bool, int]: ...
+    def make_num_dict_rewrite(self, *keys) -> Tuple[Dict[int, Any], bool, int]:
+        """生成{int: val}的行数据，虑是否重写表头
+        :return: (处理后的行数据, 是否重写表头, 表头长度)
+        """
+        ...
 
     def get_key(self, num: int) -> Union[str, int]:
         """返回指定列序号对应的header key，如为None返回列序号
@@ -309,7 +393,7 @@ def get_real_coord(coord: Union[tuple, list],
 
 
 def make_final_data_simplify(recorder: BaseRecorder,
-                                  data: Union[list, tuple, dict, None]) -> Union[list, dict]:
+                             data: Union[list, tuple, dict, None]) -> Union[list, dict]:
     """将传入的数据转换为列表或字典形式，不添加前后列数据
     :param recorder: BaseRecorder对象
     :param data: 要处理的数据
@@ -327,19 +411,44 @@ def make_final_data(recorder: BaseRecorder, data: Iterable) -> Union[list, dict]
     ...
 
 
-def get_csv(recorder: Recorder) -> Tuple[TextIOWrapper, bool]: ...
+def get_csv(recorder: Recorder) -> Tuple[TextIOWrapper, bool]:
+    """获取文件读写对象
+    :param recorder: Recorder对象
+    :return: (文件读写对象, 是否新文件)
+    """
+    ...
 
 
-def get_wb(recorder: Recorder) -> tuple: ...
+def get_wb(recorder: Recorder) -> Tuple[Workbook, bool]:
+    """获取Workbook对象
+    :param recorder: Recorder对象
+    :return: (Workbook对象, 是否新文件)
+    """
+    ...
 
 
-def get_ws(wb: Workbook, table, tables, new_file) -> Tuple[Worksheet, bool]: ...
+def get_ws(wb: Workbook, table: Optional[str], tables: List[str], new_file: bool) -> Tuple[Worksheet, bool]:
+    """获取Worksheet对象
+    :param wb: Workbook对象
+    :param table: 表名，None代表活动表格
+    :param tables: 工作簿所有表名组成的列表
+    :param new_file: 是否新文件
+    :return: (Worksheet对象, 是否新文件)
+    """
+    ...
 
 
-def get_tables(path: Union[str, Path]) -> list: ...
+def get_tables(path: Union[str, Path]) -> List[str]:
+    """获取所有数据表名称
+    :param path: 文件路径
+    :return: 表名组成的列表
+    """
+    ...
 
 
-def do_nothing(*args, **kwargs) -> None: ...
+def do_nothing(*args, **kwargs) -> None:
+    """什么都不干"""
+    ...
 
 
 def get_key_cols(cols: Union[str, int, list, tuple, bool], header: Header, is_header: bool) -> List[int]:

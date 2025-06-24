@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 from csv import reader as csv_reader, writer as csv_writer
-from json import dumps
 from pathlib import Path
 from time import sleep
 
@@ -11,7 +10,7 @@ from .cell_style import NoneStyle
 from .setter import RecorderSetter, set_csv_header
 from .tools import (ok_list_str, process_content_xlsx, process_content_json, get_key_cols,
                     get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
-                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, style2ws, get_real_row)
+                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row)
 
 
 class Recorder(BaseRecorder):
@@ -24,19 +23,19 @@ class Recorder(BaseRecorder):
                          'txt': self._to_txt_fast,
                          'jsonl': self._to_jsonl_fast,
                          'json': self._to_json_fast,
-
+                         # fast模式下非添加data使用的方法
                          'setImg': do_nothing,
                          'setLink': do_nothing,
                          'setStyle': do_nothing,
                          'setHeight': do_nothing,
                          'setWidth': do_nothing,
-                         }
-        self._xlsx_methods = {'setImg': img2ws,
-                              'setLink': link2ws,
-                              'setStyle': style2ws,
-                              'setHeight': height2ws,
-                              'setWidth': width2ws,
-                              'data': data2ws}
+                         # 写入不同类型数据时使用的方法
+                         'img': img2ws,
+                         'link': link2ws,
+                         'style': styles2ws,
+                         'height': height2ws,
+                         'width': width2ws,
+                         'data': data2ws}
         super().__init__(path=path, cache_size=cache_size)
         self._data = {None: []}
         self._delimiter = ','  # csv文件分隔符
@@ -126,7 +125,7 @@ class Recorder(BaseRecorder):
         if 0 < self.cache_size <= self._data_count:
             self.record()
 
-    def _add_data(self, data, table):  # todo: 增加文本文件fast模式，无需判断
+    def _add_data(self, data, table):
         if (self._data.get(table, 0) != 0 and self._data[table]
                 and data['coord'] == self._data[table][-1]['coord']
                 and self._data[table][-1]['type'] == 'data'):
@@ -171,19 +170,19 @@ class Recorder(BaseRecorder):
         self._add({'type': 'setWidth', 'col': col, 'width': width}, table, self._fast, 1, self._add_others)
 
     def set_link(self, coord, link, content=None, table=None):
-        self._methods['setLink'](coord, link, content, table)
+        self._methods['link'](coord, link, content, table)
 
     def set_img(self, coord, img_path, width=None, height=None, table=None):
-        self._methods['setImg'](coord, img_path, width, height, table)
+        self._methods['img'](coord, img_path, width, height, table)
 
     def set_styles(self, coord, styles, replace=True, table=None):
-        self._methods['setStyle'](coord, styles, replace, table)
+        self._methods['style'](coord, styles, replace, table)
 
     def set_row_height(self, row, height, table=None):
-        self._methods['setHeight'](row, height, table)
+        self._methods['height'](row, height, table)
 
     def set_col_width(self, col, width, table=None):
-        self._methods['setWidth'](col, width, table)
+        self._methods['width'](col, width, table)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,
              signs=None, deny_sign=False, count=None, begin_row=None):
@@ -264,7 +263,7 @@ class Recorder(BaseRecorder):
             rewrite = False
             if not begin_row and not data[0]['coord'][0]:
                 cur = data[0]
-                rewrite = self._xlsx_methods[cur['type']](
+                rewrite = self._methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
@@ -276,7 +275,7 @@ class Recorder(BaseRecorder):
                 data = data[1:]
 
             for cur in data:
-                rewrite = self._xlsx_methods[cur['type']](
+                rewrite = self._methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
@@ -524,7 +523,7 @@ def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_si
 
     if sign_col is True or sign_col > ws.max_column:  # 获取所有行
         if count:
-            rows = list(rows)[:count]  # todo: 是否要改进效率？
+            rows = list(rows)[:count]
         if key_cols is True:  # 获取整行
             res = [header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)})
                    for ind, row in enumerate(rows, begin_row)]
@@ -534,11 +533,11 @@ def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_si
 
     else:  # 获取符合条件的行
         if count:
-            res = handle_xlsx_rows_with_count(key_cols, deny_sign, header, rows,
-                                              begin_row, sign_col, sign, count)
+            res = get_xlsx_rows_with_count(key_cols, deny_sign, header, rows,
+                                           begin_row, sign_col, sign, count)
         else:
-            res = handle_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row,
-                                                 sign_col, sign)
+            res = get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row,
+                                              sign_col, sign)
 
     ws.parent.close()
     return res
@@ -572,16 +571,16 @@ def get_csv_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sig
         else:  # 获取符合条件的行
             sign_col -= 1
             if count:
-                handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign,
-                                           key_cols, res, header, count)
+                get_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign,
+                                        key_cols, res, header, count)
             else:
-                handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign,
-                                              key_cols, res, header)
+                get_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign,
+                                           key_cols, res, header)
 
     return res
 
 
-def handle_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign, count):
+def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign, count):
     got = 0
     res = []
     if key_cols is True:  # 获取整行
@@ -618,7 +617,7 @@ def handle_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, si
     return res
 
 
-def handle_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign):
+def get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign):
     if key_cols is True:  # 获取整行
         if deny_sign:
             return [header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)})
@@ -640,7 +639,7 @@ def handle_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row,
                     if row[sign_col - 1].value in sign]
 
 
-def handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header, count):
+def get_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header, count):
     got = 0
     header_len = len(header)
     for ind, line in enumerate(lines[begin_row:], begin_row + 1):
@@ -662,7 +661,7 @@ def handle_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_
             got += 1
 
 
-def handle_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header):
+def get_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header):
     header_len = len(header)
     for ind, line in enumerate(lines[begin_row:], begin_row + 1):
         row_sign = '' if sign_col > len(line) - 1 else line[sign_col]
@@ -690,12 +689,13 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
                 writer.writerow([])
             writer.writerow(ok_list_str(recorder._header[None]))
 
-        if recorder._header[None] is None and recorder.data:
-            data = get_first_dict(recorder._data)
+        if recorder._header[None] is None and recorder._data_count:
+            data = get_first_dict(recorder._data[None])
             if data:
-                recorder._header[None] = Header([h for h in recorder.data.keys() if isinstance(h, str)])
+                recorder._header[None] = Header([h for h in data.keys() if isinstance(h, str)])
             else:
                 recorder._header[None] = Header()
+            writer.writerow(ok_list_str(recorder._header[None]))
         else:
             recorder._header[None] = Header()
 
@@ -758,8 +758,9 @@ def width2ws(**kwargs):
         ws.column_dimensions[c].width = width
 
 
-def height2ws(recorder, ws, data, coord, header):
-    row, height = data['row'], data['height']
+def height2ws(**kwargs):
+    row, height = kwargs['data']['row'], kwargs['data']['height']
+    ws = kwargs['ws']
     if isinstance(row, int):
         ws.row_dimensions[row].height = height
     elif isinstance(row, str):
