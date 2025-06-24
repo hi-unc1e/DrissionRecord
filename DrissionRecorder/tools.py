@@ -22,23 +22,32 @@ def line2ws(ws, header, row, col, data, rewrite_method, rewrite):
     return rewrite
 
 
-def line2ws_style(ws, header, row, col, data, rewrite_method, rewrite, styles):
+def line2ws_follow(ws, header, row, col, data, rewrite_method, rewrite, styles, height, new_row):
+    if new_row:
+        styles2new_row(ws, styles.values(), height, row)
+
     if isinstance(data, dict):
         data, rewrite, header_len = header.__getattribute__(rewrite_method)(data, 'xlsx', rewrite)
-        for c, val in data.items():
-            cell = ws.cell(row, c, value=process_content_xlsx(val))
-            styles[c].to_cell(cell)
+        if new_row:
+            for c, val in data.items():
+                ws.cell(row, c, value=process_content_xlsx(val))
+        else:
+            for c, val in data.items():
+                styles.get(c, NoneStyle()).to_cell(ws.cell(row, c, value=process_content_xlsx(val)))
     else:
-        for key, val in enumerate(data):
-            col = col + key
-            cell = ws.cell(row, col, value=process_content_xlsx(val))
-            styles[col].to_cell(cell)
+        if new_row:
+            for key, val in enumerate(data):
+                ws.cell(row, col + key, value=process_content_xlsx(val))
+        else:
+            for key, val in enumerate(data):
+                col1 = col + key
+                styles.get(col1, NoneStyle()).to_cell(ws.cell(row, col1, value=process_content_xlsx(val)))
     return rewrite
 
 
 def data2ws(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
     row, col = coord
-    for r, d in enumerate(data, row):
+    for r, d in enumerate(data['data'], row):
         rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
     return rewrite
 
@@ -47,11 +56,12 @@ def data2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, n
     row, col = coord
     if row > 1:
         styles = {ind: CellStyleCopier(cell) for ind, cell in enumerate(ws[row - 1], 1)}
-        for r, d in enumerate(data, row):
-            rewrite = line2ws_style(ws, header, r, col, d, rewrite_method, rewrite, styles)
+        height = ws.row_dimensions[row - 1].height
+        for r, d in enumerate(data['data'], row):
+            rewrite = line2ws_follow(ws, header, r, col, d, rewrite_method, rewrite, styles, height, new_row)
 
     else:
-        for r, d in enumerate(data, row):
+        for r, d in enumerate(data['data'], row):
             rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
 
     return rewrite
@@ -60,31 +70,32 @@ def data2ws_follow(recorder, ws, data, coord, header, rewrite, rewrite_method, n
 def data2ws_style(recorder, ws, data, coord, header, rewrite, rewrite_method, new_row):
     row, col = coord
     if new_row:
-        for r, d in enumerate(data, row):
+        styles = recorder._styles
+        if isinstance(styles, dict):
+            styles = header.make_num_dict(styles, None)[0]
+            styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
+        elif isinstance(styles, CellStyle):
+            styles = [styles] * ws.max_column
+        height = ws.row_dimensions[row].height
+
+        for r, d in enumerate(data['data'], row):
             rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
-        styles2new_rows(ws, recorder._styles, recorder._row_height, row, r, header)
+            styles2new_row(ws, styles, height, row)
 
     else:
-        for r, d in enumerate(data, row):
+        for r, d in enumerate(data['data'], row):
             rewrite = line2ws(ws, header, r, col, d, rewrite_method, rewrite)
 
     return rewrite
 
 
-def styles2new_rows(ws, styles, height, begin_row, end_row, header):
-    if isinstance(styles, dict):
-        styles = header.make_num_dict(styles, None)[0]
-        styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
-    elif isinstance(styles, CellStyle):
-        styles = [styles] * ws.max_column
-
-    for r in range(begin_row, end_row + 1):
-        if height is not None:
-            ws.row_dimensions[r].height = height
-        if styles:
-            for c, s in enumerate(styles, start=1):
-                if s:
-                    s.to_cell(ws.cell(row=r, column=c))
+def styles2new_row(ws, styles, height, row):
+    if height is not None:
+        ws.row_dimensions[row].height = height
+    if styles:
+        for c, s in enumerate(styles, start=1):
+            if s:
+                s.to_cell(ws.cell(row=row, column=c))
 
 
 def styles2ws(**kwargs):

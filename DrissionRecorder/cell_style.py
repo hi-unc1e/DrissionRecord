@@ -81,11 +81,6 @@ class CellStyle(object):
         return self._protection
 
     def to_cell(self, cell, replace=True):
-        """把当前样式复制到目标单元格
-        :param cell: 被设置样式的单元格对象
-        :param replace: 是否直接替换目标单元格的样式，是的话效率较高，但不能保留未被设置的原有样式项
-        :return: None
-        """
         if replace:
             self._replace_to_cell(cell)
         else:
@@ -109,6 +104,10 @@ class CellStyle(object):
         self.pattern_fill.set_fgColor(color)
         return self
 
+    def set_txtColor(self, color):
+        self.font.set_color(color)
+        return self
+
     def set_txtSize(self, size=None, bold=None):
         if size is not None:
             self.font.set_size(size)
@@ -116,8 +115,8 @@ class CellStyle(object):
             self.font.set_bold(bold)
         return self
 
-    def set_txtColor(self, color):
-        self.font.set_color(color)
+    def set_bold(self, on_off=True):
+        self.font.set_bold(on_off)
         return self
 
     def set_delLine(self, on_off=True):

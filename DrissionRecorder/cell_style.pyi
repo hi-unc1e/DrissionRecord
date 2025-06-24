@@ -69,7 +69,13 @@ class CellStyle(object):
         """返回用于设置单元格保护选项的对象"""
         ...
 
-    def to_cell(self, cell: Cell, replace: bool = True) -> None: ...
+    def to_cell(self, cell: Cell, replace: bool = True) -> None:
+        """把当前样式复制到目标单元格
+        :param cell: 被设置样式的单元格对象
+        :param replace: 是否直接替换目标单元格的样式，是的话效率较高，但不能保留未被设置的原有样式项
+        :return: None
+        """
+        ...
 
     def set_size(self, width: float = None, height: float = None) -> CellStyle:
         """设置单元格宽和高，width和height都是None时清除宽高设置
@@ -101,8 +107,15 @@ class CellStyle(object):
         """
         ...
 
+    def set_bold(self, on_off: Optional[bool] = True) -> CellStyle:
+        """设置字体是否加粗
+        :param on_off: bool表示有或无
+        :return: 样式对象本身
+        """
+        ...
+
     def set_delLine(self, on_off: Optional[bool] = True) -> CellStyle:
-        """这是是否有删除线
+        """设置是否有删除线
         :param on_off: bool表示有或无
         :return: 样式对象本身
         """

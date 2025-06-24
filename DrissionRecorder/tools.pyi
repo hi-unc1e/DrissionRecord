@@ -28,8 +28,9 @@ def line2ws(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict,
     ...
 
 
-def line2ws_style(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list],
-                  rewrite_method: REWRITE_METHOD, rewrite: bool, styles: Dict[int, CellStyleCopier]) -> bool:
+def line2ws_follow(ws: Worksheet, header: Header, row: int, col: int, data: Union[dict, list],
+                   rewrite_method: REWRITE_METHOD, rewrite: bool, styles: Dict[int, CellStyleCopier],
+                   height: Optional[float], new_row: bool) -> bool:
     """把一行数据写入数据表，并设置样式
     :param ws: Worksheet对象
     :param header: Header对象
@@ -39,17 +40,19 @@ def line2ws_style(ws: Worksheet, header: Header, row: int, col: int, data: Union
     :param rewrite_method: 'make_num_dict_rewrite'或'make_num_dict'
     :param rewrite: 是否重写表头 
     :param styles: 样式对象了列表
+    :param height: 行高，仅新行时有效
+    :param new_row: 是否新行
     :return: 是否重写表头
     """
     ...
 
 
-def data2ws(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+def data2ws(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int],
             header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> bool:
     """数据写入数据表
     :param recorder: Recorder对象
     :param ws: Worksheet对象
-    :param data: 数据组成的列表
+    :param data: 标准数据 {'type': 'data', 'data': [(1, 2, 3, 4)], 'coord': (0, 1)}
     :param coord: 要写入的坐标
     :param header: Header对象
     :param rewrite: 是否重写表头
@@ -59,12 +62,12 @@ def data2ws(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int
     ...
 
 
-def data2ws_follow(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+def data2ws_follow(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int],
                    header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> None:
     """数据写入数据表，跟随上一行样式
     :param recorder: Recorder对象
     :param ws: Worksheet对象
-    :param data: 数据组成的列表
+    :param data: 标准数据 {'type': 'data', 'data': [(1, 2, 3, 4)], 'coord': (0, 1)}
     :param coord: 要写入的坐标
     :param header: Header对象
     :param rewrite: 是否重写表头
@@ -74,12 +77,12 @@ def data2ws_follow(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[i
     ...
 
 
-def data2ws_style(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[int, int],
+def data2ws_style(recorder: Recorder, ws: Worksheet, data: dict, coord: Tuple[int, int],
                   header: Header, rewrite: bool, rewrite_method: REWRITE_METHOD) -> None:
     """数据写入数据表，并设置指定样式
     :param recorder: Recorder对象
     :param ws: Worksheet对象
-    :param data: 数据组成的列表
+    :param data: 标准数据 {'type': 'data', 'data': [(1, 2, 3, 4)], 'coord': (0, 1)}
     :param coord: 要写入的坐标
     :param header: Header对象
     :param rewrite: 是否重写表头
@@ -89,15 +92,12 @@ def data2ws_style(recorder: Recorder, ws: Worksheet, data: list, coord: Tuple[in
     ...
 
 
-def styles2new_rows(ws: Worksheet, styles: Union[list, dict, CellStyle],
-                    height: Union[int, float], begin_row: int, end_row: int, header: Header) -> None:
+def styles2new_row(ws: Worksheet, styles: Iterable, height: float, row: int) -> None:
     """
     :param ws: Worksheet对象
     :param styles: Style对象租车的列表
     :param height: 行高
-    :param begin_row: 开始行号
-    :param end_row: 结束行号
-    :param header: Header对象
+    :param row: 行号
     :return: None
     """
     ...
