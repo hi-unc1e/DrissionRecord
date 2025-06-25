@@ -43,7 +43,7 @@ class Recorder(BaseRecorder):
         self._follow_styles = False
         self._row_height = None
         self._styles = None
-        self._header_row = 1
+        self._header_row = {None: 1}
         self._fast = True
         self._link_style = None
         self.data_col = 1
@@ -208,7 +208,7 @@ class Recorder(BaseRecorder):
 
         header = get_header(self, ws)
         if not begin_row:
-            begin_row = self._header_row + 1
+            begin_row = self._header_row.get(self.table, self._header_row[None]) + 1
 
         if sign_col is not True:
             sign_col = header.get_num(sign_col, is_header=is_header) or 1
@@ -250,14 +250,17 @@ class Recorder(BaseRecorder):
         for table, data in self._data.items():
             ws, new_sheet = get_ws(wb, table, tables, new_file)
             new_file = False
-            if table is None and ws.title not in self._header:
-                self._header[ws.title] = self._header[None]
+            if table is None:
+                if ws.title not in self._header:
+                    self._header[ws.title] = self._header[None]
+                if ws.title not in self._header_row:
+                    self._header_row[ws.title] = self._header_row[None]
 
             begin_row = True
             if new_sheet:
                 begin_row = handle_new_sheet(self, ws, data)
             elif self._header.get(ws.title, None) is None:
-                self._header[ws.title] = Header([c.value for c in ws[self._header_row]])
+                self._header[ws.title] = Header([c.value for c in ws[self._header_row[ws.title]]])
 
             header = self._header[ws.title]
             rewrite = False
@@ -287,7 +290,7 @@ class Recorder(BaseRecorder):
 
             if rewrite:
                 for c in range(1, ws.max_column + 1):
-                    ws.cell(self._header_row, c, value=header[c])
+                    ws.cell(self._header_row[ws.title], c, value=header[c])
 
         wb.save(self.path)
         wb.close()
@@ -301,7 +304,8 @@ class Recorder(BaseRecorder):
         rewrite = False
         header = self._header[None]
         for d in self._data[None]:
-            col = 1 if d['coord'][1] == 1 else get_real_col(d['coord'][1], len(header) if self._header_row > 0 else 1)
+            col = 1 if d['coord'][1] == 1 else get_real_col(d['coord'][1],
+                                                            len(header) if self._header_row[None] > 0 else 1)
             for data in d['data']:
                 data, rewrite = header.__getattribute__(rewrite_method)(data, 'csv', rewrite)
                 data = [None] * (col - 1) + data
@@ -309,7 +313,7 @@ class Recorder(BaseRecorder):
         file.close()
 
         if rewrite:
-            set_csv_header(self, self._header[None], self._header_row)
+            set_csv_header(self, self._header[None], self._header_row[None])
 
     def _to_csv_slow(self):
         file, new_csv = get_csv(self)
@@ -325,7 +329,7 @@ class Recorder(BaseRecorder):
         method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
         for i in self._data[None]:
             data = i['data']
-            row, col = get_real_coord(i['coord'], lines_count, len(header) if self._header_row > 0 else 1)
+            row, col = get_real_coord(i['coord'], lines_count, len(header) if self._header_row[None] > 0 else 1)
             for r, da in enumerate(data, row):
                 add_rows = r - lines_count
                 if add_rows > 0:  # 若行数不够，填充行数
@@ -336,8 +340,8 @@ class Recorder(BaseRecorder):
                                                                                       'csv', rewrite)
 
         if rewrite:
-            [lines.append([]) for _ in range(self._header_row - lines_count)]  # 若行数不够，填充行数
-            lines[self._header_row - 1] = list(header.num_key.values())
+            [lines.append([]) for _ in range(self._header_row[None] - lines_count)]  # 若行数不够，填充行数
+            lines[self._header_row[None] - 1] = list(header.num_key.values())
 
         file.close()
         writer = csv_writer(open(self.path, 'w', encoding=self.encoding, newline=''),
@@ -445,7 +449,6 @@ def handle_json_data(lines, num, data):
 
 
 def get_header(recorder, ws=None):
-    """获取表头"""
     header = recorder._header.get(recorder._table, None)
     if header is not None:
         return header
@@ -462,7 +465,8 @@ def get_header(recorder, ws=None):
                 return Header()
             else:
                 ws = wb[recorder.table]
-        recorder._header[recorder.table] = Header([i.value for i in ws[recorder._header_row]])
+        recorder._header[recorder.table] = Header(
+            [i.value for i in ws[recorder._header_row.get(recorder.table, recorder._header_row[None])]])
 
         if not ws:
             wb.close()
@@ -473,7 +477,7 @@ def get_header(recorder, ws=None):
         with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
             u = reader(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
             try:
-                for _ in range(recorder._header_row):
+                for _ in range(recorder._header_row[None]):
                     header = next(u)
             except StopIteration:  # 文件是空的
                 header = []
@@ -487,7 +491,7 @@ def handle_new_sheet(recorder, ws, data):
 
     if recorder._header.get(ws.title, None) is not None:
         for c, h in recorder._header[ws.title].items():
-            ws.cell(row=recorder._header_row, column=c, value=h)
+            ws.cell(row=recorder._header_row[ws.title], column=c, value=h)
         begin_row = recorder._header_row
 
     else:
@@ -496,7 +500,7 @@ def handle_new_sheet(recorder, ws, data):
             header = Header([h for h in data.keys() if isinstance(h, str)])
             recorder._header[ws.title] = header
             for c, h in header.items():
-                ws.cell(row=recorder._header_row, column=c, value=h)
+                ws.cell(row=recorder._header_row[ws.title], column=c, value=h)
             begin_row = recorder._header_row
 
         else:
@@ -685,7 +689,7 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
 
     if new_csv:
         if recorder._header[None]:
-            for _ in range(recorder._header_row - 1):
+            for _ in range(recorder._header_row[None] - 1):
                 writer.writerow([])
             writer.writerow(ok_list_str(recorder._header[None]))
 
@@ -704,7 +708,7 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
         reader = csv_reader(file, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
         header = []
         try:
-            for _ in range(recorder._header_row):
+            for _ in range(recorder._header_row[None]):
                 header = next(reader)
         except StopIteration:
             pass

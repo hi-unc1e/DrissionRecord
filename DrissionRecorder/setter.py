@@ -82,7 +82,7 @@ class RecorderSetter(BaseSetter):
             raise ValueError('header不能为空且必须为list或tuple格式。')
 
         self._recorder.record()
-        row = row or self._recorder._header_row or 1
+        row = row or self._recorder._header_row.get(table, 1)
         with self._recorder._lock:
             header = Header(header)
             if self._recorder.type == 'xlsx':
@@ -99,10 +99,10 @@ class RecorderSetter(BaseSetter):
 
         return self
 
-    def header_row(self, num):
+    def header_row(self, num, table=None):
         if num < 0:
             raise ValueError('num不能小于0。')
-        self._recorder._header_row = num
+        self._recorder._header_row[table] = num
         self._recorder._header[self._recorder.table] = ZeroHeader() if num == 0 else None
         return self
 
@@ -122,6 +122,7 @@ class RecorderSetter(BaseSetter):
                 file_type = suffix[1:]
         self.file_type(file_type)
         self._recorder._header = {None: None}
+        self._recorder._header_row = {None: 1}
         return self
 
     def file_type(self, file_type):

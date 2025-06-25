@@ -161,9 +161,10 @@ class RecorderSetter(BaseSetter):
         """
         ...
 
-    def header_row(self, num: int) -> RecorderSetter:
+    def header_row(self, num: int, table=None) -> RecorderSetter:
         """设置标题行号
         :param num: 行号
+        :param table: 表名，None为活动表格
         :return: 设置对象自己
         """
         ...
