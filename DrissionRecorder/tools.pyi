@@ -7,7 +7,7 @@ from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .base import BaseRecorder
-from .cell_style import CellStyle, CellStyleCopier
+from .cell_style import CellStyleCopier
 from .recorder import Recorder
 
 REWRITE_METHOD = Literal['make_num_dict_rewrite', 'make_num_dict']

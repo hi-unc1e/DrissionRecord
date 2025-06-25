@@ -121,6 +121,13 @@ class CellStyle(object):
         """
         ...
 
+    def set_underLine(self, on_off: Optional[bool] = True) -> CellStyle:
+        """设置是否有下划线线
+        :param on_off: bool表示有或无
+        :return: 样式对象本身
+        """
+        ...
+
     def _cover_to_cell(self, cell: Cell) -> None:
         """把当前样式复制到目标单元格，只覆盖有设置的项，没有设置的原有的项不变
         :param cell: 被设置样式的单元格对象

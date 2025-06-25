@@ -123,6 +123,10 @@ class CellStyle(object):
         self.font.set_strike(on_off)
         return self
 
+    def set_underLine(self, on_off=True):
+        self.font.set_underline('single' if on_off else None)
+        return self
+
     def _cover_to_cell(self, cell):
         if self._font:
             d = _handle_args(self.font_args, self._font, cell.font)

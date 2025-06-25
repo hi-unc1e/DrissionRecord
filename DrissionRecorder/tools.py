@@ -103,7 +103,10 @@ def styles2ws(**kwargs):
     header = kwargs['header']
     data = kwargs['data']
     styles = data['styles']
-    coord = data['real_coord'] if data['real_coord'] else get_real_coord(data['coord'], ws.max_row, ws.max_column)
+    coord = (data['real_coord'] if data['real_coord'] is not None
+             else get_real_coord(data['coord'], ws.max_row, ws.max_column))
+    if coord == 0:
+        coord = get_real_row(0, ws.max_row)
     none_style = NoneStyle()
     mode = data['mode'] == 'replace'
 
