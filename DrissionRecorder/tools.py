@@ -193,6 +193,100 @@ def styles2ws(**kwargs):
                     s.to_cell(ws.cell(row, col + ind), replace=mode)
 
 
+def link2ws(**kwargs):
+    recorder = kwargs['recorder']
+    data = kwargs['data']
+    cell = kwargs['ws'].cell(*kwargs['coord'])
+    has_link = bool(cell.hyperlink)
+    cell.hyperlink = data['link']
+    if data['content'] is not None:
+        cell.value = process_content_xlsx(data['content'])
+    if data['link']:
+        if recorder._link_style:
+            recorder._link_style.to_cell(cell, replace=False)
+    elif has_link:
+        NoneStyle().to_cell(cell, replace=False)
+
+
+def img2ws(**kwargs):
+    row, col = kwargs['coord']
+    data = kwargs['data']
+    ws = kwargs['ws']
+    from openpyxl.drawing.image import Image
+    img = Image(data['imgPath'])
+    width, height = data['width'], data['height']
+    if width and height:
+        img.width = width
+        img.height = height
+    elif width:
+        img.height = int(img.height * (width / img.width))
+        img.width = width
+    elif height:
+        img.width = int(img.width * (height / img.height))
+        img.height = height
+    # ws.add_image(img, (row, Header._NUM_KEY[col]))
+    ws.add_image(img, f'{Header._NUM_KEY[col]}{row}')
+
+
+def width2ws(**kwargs):
+    cols, width = kwargs['data']['cols'], kwargs['data']['width']
+    ws = kwargs['ws']
+    header = kwargs['header'] if kwargs['data']['header'] else None
+    if isinstance(cols, int):
+        if not cols:
+            cols = get_real_col(cols, ws.max_column)
+        ws.column_dimensions[ZeroHeader()._NUM_KEY[cols]].width = width
+
+    elif isinstance(cols, str):
+        if ':' in cols:
+            beg, end = cols.split(':', 1)
+            beg = int(beg) if beg.isdigit() else (header.get_num(beg) if header else ZeroHeader().key_num[beg])
+            end = int(end) if end.isdigit() else (header.get_num(end) if header else ZeroHeader().key_num[end])
+            if beg > end:
+                beg, end = end, beg
+            for c in range(beg, end + 1):
+                ws.column_dimensions[header.get_col(c)].width = width
+        else:
+            ws.column_dimensions[header.get_col(header) if header else cols].width = width
+
+    elif isinstance(cols, (list, tuple)):
+        for col in cols:
+            if isinstance(col, int):
+                ws.column_dimensions[ZeroHeader()._NUM_KEY[col]].width = width
+            elif isinstance(col, str):
+                ws.column_dimensions[header.get_col(header) if header else col].width = width
+
+    elif cols is True:
+        for col in range(1, ws.max_column + 1):
+            ws.column_dimensions[ZeroHeader()._NUM_KEY[cols]].width = width
+
+
+def height2ws(**kwargs):
+    rows, height = kwargs['data']['rows'], kwargs['data']['height']
+    ws = kwargs['ws']
+    if isinstance(rows, int):
+        if not rows:
+            rows = get_real_row(rows, ws.max_row)
+        ws.row_dimensions[rows].height = height
+    elif isinstance(rows, str):
+        if ':' in rows:
+            begin, end = rows.split(':', 1)
+            begin = int(begin)
+            end = int(end)
+            if begin > end:
+                begin, end = end, begin
+            for c in range(begin, end + 1):
+                ws.row_dimensions[c].height = height
+        else:
+            ws.row_dimensions[int(rows)].height = height
+    elif isinstance(rows, (list, tuple)):
+        for row in rows:
+            ws.row_dimensions[int(row)].height = height
+    elif rows is True:
+        for i in range(1, ws.max_row + 1):
+            ws.row_dimensions[i].height = height
+
+
 def is_sigal_data(data):
     return not isinstance(data, Iterable) or isinstance(data, str)
 
@@ -397,6 +491,13 @@ class Header(BaseHeader):
         key = self[num]
         return num if key is None else key
 
+    def get_col(self, header_or_num):
+        if isinstance(header_or_num, int):
+            return ZeroHeader().num_key[header_or_num]
+        else:
+            res = self[header_or_num]
+            return ZeroHeader().num_key[res] if res else None
+
     def get_num(self, col, is_header=True):
         if isinstance(col, int) and col > 0:
             return col
@@ -455,6 +556,9 @@ class ZeroHeader(Header):
     def make_num_dict_rewrite(self, *keys):
         data, file_type, rewrite = keys
         return self.make_num_dict(data, file_type)
+
+    def get_col(self, header_or_num):
+        return self[header_or_num] if isinstance(header_or_num, int) else header_or_num
 
     def __getitem__(self, item):
         return self.num_key.get(item, None) if isinstance(item, int) else self.key_num.get(item.upper(), None)

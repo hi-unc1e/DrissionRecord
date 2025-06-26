@@ -6,9 +6,8 @@ from time import sleep
 from openpyxl.reader.excel import load_workbook
 
 from .base import BaseRecorder
-from .cell_style import NoneStyle
 from .setter import RecorderSetter, set_csv_header
-from .tools import (ok_list_str, process_content_xlsx, process_content_json, get_key_cols,
+from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, link2ws, height2ws, width2ws,
                     get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
                     get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row)
 
@@ -55,8 +54,8 @@ class Recorder(BaseRecorder):
             self._methods['addImg'] = self._add_img
             self._methods['addLink'] = self._add_link
             self._methods['addStyle'] = self._add_styles
-            self._methods['addHeight'] = self._add_row_height
-            self._methods['addWidth'] = self._add_col_width
+            self._methods['addHeight'] = self._add_rows_height
+            self._methods['addWidth'] = self._add_cols_width
             self._methods['addData'] = self._add_data_any
         else:
             self._methods['addImg'] = do_nothing
@@ -168,15 +167,12 @@ class Recorder(BaseRecorder):
         self._add({'type': 'style', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
                    'styles': styles, 'coord': coord}, table, self._fast, 1, self._add_others)
 
-    def _add_row_height(self, row, height, table=None):
-        if not row:
-            raise ValueError('row不能为0或None。')
-        self._add({'type': 'height', 'row': row, 'height': height}, table, self._fast, 1, self._add_others)
+    def _add_rows_height(self, rows, height, table=None):
+        self._add({'type': 'height', 'rows': rows, 'height': height}, table, self._fast, 1, self._add_others)
 
-    def _add_col_width(self, col, width, table=None):
-        if not col:
-            raise ValueError('col不能为0或None。')
-        self._add({'type': 'width', 'col': col, 'width': width}, table, self._fast, 1, self._add_others)
+    def _add_cols_width(self, cols, width, table=None, is_header=False):
+        self._add({'type': 'width', 'cols': cols, 'width': width, 'header': is_header}, table, self._fast, 1,
+                  self._add_others)
 
     def add_link(self, coord, link, content=None, table=None):
         self._methods['addLink'](coord, link, content, table)
@@ -187,11 +183,11 @@ class Recorder(BaseRecorder):
     def add_styles(self, coord, styles, replace=True, table=None):
         self._methods['addStyle'](coord, styles, replace, table)
 
-    def add_row_height(self, row, height, table=None):
-        self._methods['addHeight'](row, height, table)
+    def add_rows_height(self, rows, height, table=None):
+        self._methods['addHeight'](rows, height, table)
 
-    def add_col_width(self, col, width, table=None):
-        self._methods['addWidth'](col, width, table)
+    def add_cols_width(self, cols, width, table=None, is_header=False):
+        self._methods['addWidth'](cols, width, table, is_header)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,
              signs=None, deny_sign=False, count=None, begin_row=None):
@@ -723,62 +719,6 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
             pass
         recorder._header[None] = Header(header)
         file.seek(2)
-
-
-def link2ws(**kwargs):
-    recorder = kwargs['recorder']
-    data = kwargs['data']
-    cell = kwargs['ws'].cell(*kwargs['coord'])
-    has_link = bool(cell.hyperlink)
-    cell.hyperlink = data['link']
-    if data['content'] is not None:
-        cell.value = process_content_xlsx(data['content'])
-    if data['link']:
-        if recorder._link_style:
-            recorder._link_style.to_cell(cell, replace=False)
-    elif has_link:
-        NoneStyle().to_cell(cell, replace=False)
-
-
-def img2ws(**kwargs):
-    row, col = kwargs['coord']
-    data = kwargs['data']
-    ws = kwargs['ws']
-    from openpyxl.drawing.image import Image
-    img = Image(data['imgPath'])
-    width, height = data['width'], data['height']
-    if width and height:
-        img.width = width
-        img.height = height
-    elif width:
-        img.height = int(img.height * (width / img.width))
-        img.width = width
-    elif height:
-        img.width = int(img.width * (height / img.height))
-        img.height = height
-    # ws.add_image(img, (row, Header._NUM_KEY[col]))
-    ws.add_image(img, f'{Header._NUM_KEY[col]}{row}')
-
-
-def width2ws(**kwargs):
-    col, width = kwargs['data']['col'], kwargs['data']['width']
-    ws = kwargs['ws']
-    if isinstance(col, int):
-        col = Header._NUM_KEY[col]
-    for c in col.split(':'):
-        if c.isdigit():
-            c = Header._NUM_KEY[int(c)]
-        ws.column_dimensions[c].width = width
-
-
-def height2ws(**kwargs):
-    row, height = kwargs['data']['row'], kwargs['data']['height']
-    ws = kwargs['ws']
-    if isinstance(row, int):
-        ws.row_dimensions[row].height = height
-    elif isinstance(row, str):
-        for r in row.split(':'):
-            ws.row_dimensions[int(r)].height = height
 
 
 def not_type(*keys):

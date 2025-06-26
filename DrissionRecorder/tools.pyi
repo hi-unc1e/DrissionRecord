@@ -108,6 +108,26 @@ def styles2ws(**kwargs) -> None:
     ...
 
 
+def link2ws(**kwargs) -> None:
+    """把擦后入到单元格"""
+    ...
+
+
+def img2ws(**kwargs) -> None:
+    """把图片到单元格"""
+    ...
+
+
+def width2ws(**kwargs) -> None:
+    """把列宽设置到数据表"""
+    ...
+
+
+def height2ws(**kwargs) -> None:
+    """把行高设置到数据表"""
+    ...
+
+
 def remove_end_Nones(in_list: list) -> list:
     """去除列表后面所有None
     :param in_list: 要处理的list
@@ -213,9 +233,16 @@ class Header(BaseHeader):
         ...
 
     def get_key(self, num: int) -> Union[str, int]:
-        """返回指定列序号对应的header key，如为None返回列序号
+        """返回指定列序号对应的表头值，如改列没有值，返回列序号
         :param num: 列序号
         :return: 表头值或列序号
+        """
+        ...
+
+    def get_col(self, header_or_num) -> str:
+        """返回指定列序号或表头值对应的列号
+        :param header_or_num: 表头值或列序号
+        :return: 列号（'a'）
         """
         ...
 

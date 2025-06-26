@@ -119,22 +119,23 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def add_row_height(self, row: Union[int, str], height: float,
-                       table: Union[str, bool] = None) -> None:
-        """设置行高，可设置连续多行
-        :param row: 行号，可传入范围，如'1:4'
+    def add_rows_height(self, rows: Union[int, str, list, tuple, True], height: float,
+                        table: Union[str, bool] = None) -> None:
+        """设置行高，可设置多行
+        :param rows: 行号，可指定多行（1、'1:4'、[1, 2, 3]），为Ture设置所有行
         :param height: 行高
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
         :return: None
         """
         ...
 
-    def add_col_width(self, col: Union[int, str], width: float,
-                      table: Union[str, bool] = None) -> None:
-        """设置列宽，可设置连续多列
-        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
+    def add_cols_width(self, cols: Union[int, str, list, tuple, True], width: float,
+                       table: Union[str, bool] = None, is_header: bool = False) -> None:
+        """设置列宽，可设置多列
+        :param cols: 列号，可指定多列（1、'a'、'序号'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
         :param width: 列宽
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
+        :param is_header: cols里的str是列号还是header
         :return: None
         """
         ...
@@ -183,22 +184,23 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _add_row_height(self, row: Union[int, str], height: float,
-                        table: Union[str, bool] = None) -> None:
+    def _add_rows_height(self, rows: Union[int, str, list, tuple, True], height: float,
+                         table: Union[str, bool] = None) -> None:
         """设置行高，可设置连续多行
-        :param row: 行号，可传入范围，如'1:4'
+        :param rows: 行号，可指定多行（1、'1:4'、[1, 2, 3]），为Ture设置所有行
         :param height: 行高
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
         :return: None
         """
         ...
 
-    def _add_col_width(self, col: Union[int, str], width: float,
-                       table: Union[str, bool] = None) -> None:
-        """设置列宽，可设置连续多列
-        :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
+    def _add_cols_width(self, cols: Union[int, str, list, tuple, True], width: float,
+                        table: Union[str, bool] = None, is_header: bool = False) -> None:
+        """设置列宽，可设置多列
+        :param cols: 列号，可指定多列（1、'a'、'序号'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
         :param width: 列宽
-        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
+        :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
+        :param is_header: cols里的str是列号还是header
         :return: None
         """
         ...
@@ -493,24 +495,4 @@ def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrappe
     :param writer: csv writer对象
     :return: None
     """
-    ...
-
-
-def link2ws(**kwargs) -> None:
-    """把擦后入到单元格"""
-    ...
-
-
-def img2ws(**kwargs) -> None:
-    """把图片到单元格"""
-    ...
-
-
-def width2ws(**kwargs) -> None:
-    """把列宽设置到数据表"""
-    ...
-
-
-def height2ws(**kwargs) -> None:
-    """把行高设置到数据表"""
     ...
