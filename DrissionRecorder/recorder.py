@@ -23,12 +23,13 @@ class Recorder(BaseRecorder):
                          'txt': self._to_txt_fast,
                          'jsonl': self._to_jsonl_fast,
                          'json': self._to_json_fast,
+                         'addData': not_type,
                          # fast模式下非添加data使用的方法
-                         'setImg': do_nothing,
-                         'setLink': do_nothing,
-                         'setStyle': do_nothing,
-                         'setHeight': do_nothing,
-                         'setWidth': do_nothing,
+                         'addImg': do_nothing,
+                         'addLink': do_nothing,
+                         'addStyle': do_nothing,
+                         'addHeight': do_nothing,
+                         'addWidth': do_nothing,
                          # 写入不同类型数据时使用的方法
                          'img': img2ws,
                          'link': link2ws,
@@ -37,7 +38,7 @@ class Recorder(BaseRecorder):
                          'width': width2ws,
                          'data': data2ws}
         super().__init__(path=path, cache_size=cache_size)
-        self._data = {None: []}
+        self._data = {}
         self._delimiter = ','  # csv文件分隔符
         self._quote_char = '"'  # csv文件引用符
         self._follow_styles = False
@@ -51,17 +52,19 @@ class Recorder(BaseRecorder):
     def _set_methods(self, file_type):
         self._methods[file_type] = getattr(self, f'_to_{file_type}_fast')
         if file_type == 'xlsx':
-            self._methods['setImg'] = self._set_img
-            self._methods['setLink'] = self._set_link
-            self._methods['setStyle'] = self._set_styles
-            self._methods['setHeight'] = self._set_row_height
-            self._methods['setWidth'] = self._set_col_width
+            self._methods['addImg'] = self._add_img
+            self._methods['addLink'] = self._add_link
+            self._methods['addStyle'] = self._add_styles
+            self._methods['addHeight'] = self._add_row_height
+            self._methods['addWidth'] = self._add_col_width
+            self._methods['addData'] = self._add_data_any
         else:
-            self._methods['setImg'] = do_nothing
-            self._methods['setLink'] = do_nothing
-            self._methods['setStyle'] = do_nothing
-            self._methods['setHeight'] = do_nothing
-            self._methods['setWidth'] = do_nothing
+            self._methods['addImg'] = do_nothing
+            self._methods['addLink'] = do_nothing
+            self._methods['addStyle'] = do_nothing
+            self._methods['addHeight'] = do_nothing
+            self._methods['addWidth'] = do_nothing
+            self._methods['addData'] = self._add_data_txt
 
     @property
     def set(self):
@@ -87,8 +90,8 @@ class Recorder(BaseRecorder):
         coord = parse_coord(coord, self.data_col)
         data, data_len = self._handle_data(data, coord)
         self._add(data, table,
-                  True if self._fast and coord[0] else False,  # xlsx不需要fast模式
-                  data_len, self._add_data)
+                  True if self._fast and coord[0] else False,
+                  data_len, self._methods['addData'])
 
     def _handle_data(self, data, coord):
         if is_sigal_data(data):
@@ -125,7 +128,7 @@ class Recorder(BaseRecorder):
         if 0 < self.cache_size <= self._data_count:
             self.record()
 
-    def _add_data(self, data, table):
+    def _add_data_any(self, data, table):
         if (self._data.get(table, 0) != 0 and self._data[table]
                 and data['coord'] == self._data[table][-1]['coord']
                 and self._data[table][-1]['type'] == 'data'):
@@ -133,18 +136,24 @@ class Recorder(BaseRecorder):
         else:
             self._data.setdefault(table, []).append(data)
 
+    def _add_data_txt(self, data, table):
+        if self._data.get(None, None) and data['coord'] == self._data[None][-1]['coord']:
+            self._data[table][-1]['data'].extend(data['data'])
+        else:
+            self._data.setdefault(None, []).append(data)
+
     def _add_others(self, data, table):
         self._data.setdefault(table, []).append(data)
 
-    def _set_link(self, coord, link, content=None, table=None):
+    def _add_link(self, coord, link, content=None, table=None):
         self._add({'type': 'link', 'link': link, 'content': content,
                    'coord': parse_coord(coord, self.data_col)}, table, self._fast, 1, self._add_others)
 
-    def _set_img(self, coord, img_path, width=None, height=None, table=None):
+    def _add_img(self, coord, img_path, width=None, height=None, table=None):
         self._add({'type': 'img', 'imgPath': img_path, 'width': width, 'height': height,
                    'coord': parse_coord(coord, self.data_col)}, table, self._fast, 1, self._add_others)
 
-    def _set_styles(self, coord, styles, replace=True, table=None):
+    def _add_styles(self, coord, styles, replace=True, table=None):
         if isinstance(coord, str):
             if ':' in coord:
                 real, coord = coord, (1, 1)
@@ -159,30 +168,30 @@ class Recorder(BaseRecorder):
         self._add({'type': 'style', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
                    'styles': styles, 'coord': coord}, table, self._fast, 1, self._add_others)
 
-    def _set_row_height(self, row, height, table=None):
+    def _add_row_height(self, row, height, table=None):
         if not row:
             raise ValueError('row不能为0或None。')
         self._add({'type': 'height', 'row': row, 'height': height}, table, self._fast, 1, self._add_others)
 
-    def _set_col_width(self, col, width, table=None):
+    def _add_col_width(self, col, width, table=None):
         if not col:
             raise ValueError('col不能为0或None。')
         self._add({'type': 'width', 'col': col, 'width': width}, table, self._fast, 1, self._add_others)
 
-    def set_link(self, coord, link, content=None, table=None):
-        self._methods['setLink'](coord, link, content, table)
+    def add_link(self, coord, link, content=None, table=None):
+        self._methods['addLink'](coord, link, content, table)
 
-    def set_img(self, coord, img_path, width=None, height=None, table=None):
-        self._methods['setImg'](coord, img_path, width, height, table)
+    def add_img(self, coord, img_path, width=None, height=None, table=None):
+        self._methods['addImg'](coord, img_path, width, height, table)
 
-    def set_styles(self, coord, styles, replace=True, table=None):
-        self._methods['setStyle'](coord, styles, replace, table)
+    def add_styles(self, coord, styles, replace=True, table=None):
+        self._methods['addStyle'](coord, styles, replace, table)
 
-    def set_row_height(self, row, height, table=None):
-        self._methods['setHeight'](row, height, table)
+    def add_row_height(self, row, height, table=None):
+        self._methods['addHeight'](row, height, table)
 
-    def set_col_width(self, col, width, table=None):
-        self._methods['setWidth'](col, width, table)
+    def add_col_width(self, col, width, table=None):
+        self._methods['addWidth'](col, width, table)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,
              signs=None, deny_sign=False, count=None, begin_row=None):
@@ -218,10 +227,6 @@ class Recorder(BaseRecorder):
 
         return method(self, header=header, key_cols=key_cols, begin_row=begin_row, sign_col=sign_col,
                       sign=signs, deny_sign=deny_sign, count=count, ws=ws)
-
-    def clear(self):
-        self._data_count = 0
-        self._data = {None: []}
 
     def _record(self):
         self._methods[self.type]()
@@ -465,8 +470,12 @@ def get_header(recorder, ws=None):
                 return Header()
             else:
                 ws = wb[recorder.table]
-        recorder._header[recorder.table] = Header(
-            [i.value for i in ws[recorder._header_row.get(recorder.table, recorder._header_row[None])]])
+        header_row = recorder._header_row.get(recorder.table, recorder._header_row[None])
+        if header_row > ws.max_row:
+            recorder._header[recorder.table] = Header()
+        else:
+            recorder._header[recorder.table] = Header(
+                [i.value for i in ws[recorder._header_row.get(recorder.table, recorder._header_row[None])]])
 
         if not ws:
             wb.close()
@@ -770,3 +779,7 @@ def height2ws(**kwargs):
     elif isinstance(row, str):
         for r in row.split(':'):
             ws.row_dimensions[int(r)].height = height
+
+
+def not_type(*keys):
+    raise RuntimeError('添加数据前请先指定文件路径或类型。')

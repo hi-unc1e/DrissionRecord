@@ -75,7 +75,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_link(self,
+    def add_link(self,
                  coord: Union[int, str, tuple, list],
                  link: Union[str, dict],
                  content: Union[None, int, str, float] = None,
@@ -89,7 +89,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_img(self,
+    def add_img(self,
                 coord: Union[int, str, tuple, list],
                 img_path: Union[None, str, Path, dict],
                 width: float = None,
@@ -105,7 +105,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_styles(self,
+    def add_styles(self,
                    coord: Union[int, str, tuple, list],
                    styles: Union[CellStyle, dict, list, tuple],
                    replace: bool = True,
@@ -119,7 +119,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_row_height(self, row: Union[int, str], height: float,
+    def add_row_height(self, row: Union[int, str], height: float,
                        table: Union[str, bool] = None) -> None:
         """设置行高，可设置连续多行
         :param row: 行号，可传入范围，如'1:4'
@@ -129,7 +129,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def set_col_width(self, col: Union[int, str], width: float,
+    def add_col_width(self, col: Union[int, str], width: float,
                       table: Union[str, bool] = None) -> None:
         """设置列宽，可设置连续多列
         :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
@@ -139,7 +139,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_link(self,
+    def _add_link(self,
                   coord: Union[int, str, tuple, list],
                   link: Union[str, dict],
                   content: Union[None, int, str, float] = None,
@@ -153,7 +153,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_img(self,
+    def _add_img(self,
                  coord: Union[int, str, tuple, list],
                  img_path: Union[None, str, Path, dict],
                  width: float = None,
@@ -169,7 +169,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_styles(self,
+    def _add_styles(self,
                     coord: Union[int, str, tuple, list],
                     style: Union[CellStyle, dict],
                     replace: bool = True,
@@ -183,7 +183,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_row_height(self, row: Union[int, str], height: float,
+    def _add_row_height(self, row: Union[int, str], height: float,
                         table: Union[str, bool] = None) -> None:
         """设置行高，可设置连续多行
         :param row: 行号，可传入范围，如'1:4'
@@ -193,7 +193,7 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _set_col_width(self, col: Union[int, str], width: float,
+    def _add_col_width(self, col: Union[int, str], width: float,
                        table: Union[str, bool] = None) -> None:
         """设置列宽，可设置连续多列
         :param col: 列号，数字或字母，可传入范围，如'1:4'、'a:d'
@@ -213,8 +213,16 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _add_data(self, data: dict, table: Optional[str]) -> None:
-        """添加data到_data的操作
+    def _add_data_any(self, data: dict, table: Optional[str]) -> None:
+        """添加data到_data的操作，适用于任意类型文件
+        :param data: 数据
+        :param table: 要添加数据的表
+        :return: None
+        """
+        ...
+
+    def _add_data_txt(self, data: dict, table: Optional[str]) -> None:
+        """添加data到_data的操作，适用于除xlsx以外的文件类型
         :param data: 数据
         :param table: 要添加数据的表
         :return: None
@@ -247,10 +255,6 @@ class Recorder(BaseRecorder):
         :param begin_row: 数据开始的行，None表示header_row后面一行
         :return: RowData对象
         """
-        ...
-
-    def clear(self) -> None:
-        """清除已保存的数据"""
         ...
 
     def _handle_data(self, data: Any, coord: tuple) -> Tuple[dict, int]:

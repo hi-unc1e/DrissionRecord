@@ -3,4 +3,4 @@ from .db_recorder import DBRecorder
 from .recorder import Recorder
 from .cell_style import CellStyle
 
-__version__ = '4.0.0b0'
+__version__ = '4.0.0b1'
