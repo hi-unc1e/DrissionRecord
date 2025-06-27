@@ -610,7 +610,7 @@ class RowData(dict):
             raise RuntimeError(f'header中无{item}项。\nheader：{self.header.values()}')
         return self.get(ite, self.None_val)
 
-    def val(self, key, is_header=False, coord=False):
+    def val(self, key, is_header=True, coord=False):
         if isinstance(key, str):
             key = self.header[key] if is_header else ZeroHeader()[key]
         if isinstance(key, int) and key > 0:

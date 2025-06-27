@@ -119,12 +119,14 @@ class OriginalRecorder(object):
         self._data_count = 0
 
     def backup(self, path='backup', name=None):
+        src_path = Path(self._path)
         if not self._file_exists:
-            return
+            if not src_path.exists():
+                return
+            self._file_exists = True
 
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
-        src_path = Path(self._path)
         if not name:
             name = src_path.name
         elif not name.endswith(src_path.suffix):

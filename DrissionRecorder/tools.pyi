@@ -266,7 +266,7 @@ class RowData(dict):
 
     def __init__(self, row: int, header: Header, None_val: Optional[''], seq: dict): ...
 
-    def val(self, key: Union[int, str], is_header: bool = False, coord: bool = False) -> Any:
+    def val(self, key: Union[int, str], is_header: bool = True, coord: bool = False) -> Any:
         """当前行获取指定列的值
         :param key: 为int时表示列序号，为str时表示列号或header key
         :param is_header: 为str时是header key还是列号
