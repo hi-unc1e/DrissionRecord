@@ -137,9 +137,29 @@ def styles2ws(**kwargs):
 
     elif isinstance(styles, CellStyle):
         if isinstance(coord, str) and ':' in coord:
-            for c in ws[coord]:
-                for cc in c:
-                    styles.to_cell(cc, replace=mode)
+            begin, end = coord.split(':', 1)
+            if begin.isalpha() and end.isalpha():
+                if ZeroHeader()[begin] > ZeroHeader()[end]:
+                    begin, end = end, begin
+                for c in ws[f'{begin}:{end}']:
+                    for cc in c:
+                        styles.to_cell(cc, replace=mode)
+            elif begin.isdigit() and end.isdigit():
+                if begin > end:
+                    begin, end = end, begin
+                for c in ws[f'{begin}:{end}']:
+                    for cc in c:
+                        styles.to_cell(cc, replace=mode)
+            else:
+                row1, col1 = parse_coord(begin)
+                row2, col2 = parse_coord(end)
+                if row1 > row2:
+                    row1, row2 = row2, row1
+                if col1 > col2:
+                    col1, col2 = col2, col1
+                for r in range(row1, row2 + 1):
+                    for c in range(col1, col2 + 1):
+                        styles.to_cell(ws.cell(r, c), replace=mode)
         elif isinstance(coord, int):
             for c in ws[coord]:
                 styles.to_cell(c, replace=mode)
@@ -160,15 +180,15 @@ def styles2ws(**kwargs):
             if ':' in coord:
                 begin, end = coord.split(':', 1)
                 if begin.isalpha() and end.isalpha():  # 'A:C'形式
-                    begin = ZeroHeader().key_num.get(begin, None)
-                    end = ZeroHeader().key_num.get(end, None)
+                    begin = ZeroHeader()[begin]
+                    end = ZeroHeader()[end]
                     if not begin or not end:
                         return
                     if begin > end:
                         begin, end = end, begin
                     styles_len = len(styles)
                     for i in range(begin, end + 1):
-                        for ind, cell in enumerate(ws[ZeroHeader().num_key[i]]):
+                        for ind, cell in enumerate(ws[ZeroHeader()[i]]):
                             styles[ind % styles_len].to_cell(cell, replace=mode)
 
                 elif not begin.isalpha() and not end.isalpha():  # 'A1:C3'形式
@@ -235,30 +255,40 @@ def width2ws(**kwargs):
     if isinstance(cols, int):
         if not cols:
             cols = get_real_col(cols, ws.max_column)
-        ws.column_dimensions[ZeroHeader()._NUM_KEY[cols]].width = width
+        cols = ZeroHeader()[cols]
+        if cols:
+            ws.column_dimensions[cols].width = width
 
     elif isinstance(cols, str):
         if ':' in cols:
             beg, end = cols.split(':', 1)
-            beg = int(beg) if beg.isdigit() else (header.get_num(beg) if header else ZeroHeader().key_num[beg])
-            end = int(end) if end.isdigit() else (header.get_num(end) if header else ZeroHeader().key_num[end])
+            beg = int(beg) if beg.isdigit() else (header.get_num(beg) if header else ZeroHeader()[beg])
+            end = int(end) if end.isdigit() else (header.get_num(end) if header else ZeroHeader()[end])
             if beg > end:
                 beg, end = end, beg
             for c in range(beg, end + 1):
-                ws.column_dimensions[header.get_col(c)].width = width
+                c = header.get_col(c)
+                if c:
+                    ws.column_dimensions[c].width = width
         else:
-            ws.column_dimensions[header.get_col(header) if header else cols].width = width
+            col = header.get_col(header) if header else cols
+            if col:
+                ws.column_dimensions[col].width = width
 
     elif isinstance(cols, (list, tuple)):
         for col in cols:
             if isinstance(col, int):
-                ws.column_dimensions[ZeroHeader()._NUM_KEY[col]].width = width
+                col = ZeroHeader()[col]
             elif isinstance(col, str):
-                ws.column_dimensions[header.get_col(header) if header else col].width = width
+                col = header.get_col(col) if header else col
+            if col:
+                ws.column_dimensions[col].width = width
 
     elif cols is True:
         for col in range(1, ws.max_column + 1):
-            ws.column_dimensions[ZeroHeader()._NUM_KEY[cols]].width = width
+            col = ZeroHeader()[cols]
+            if col:
+                ws.column_dimensions[ZeroHeader()[cols]].width = width
 
 
 def height2ws(**kwargs):
@@ -493,10 +523,10 @@ class Header(BaseHeader):
 
     def get_col(self, header_or_num):
         if isinstance(header_or_num, int):
-            return ZeroHeader().num_key[header_or_num]
+            return ZeroHeader()[header_or_num]
         else:
             res = self[header_or_num]
-            return ZeroHeader().num_key[res] if res else None
+            return ZeroHeader()[res] if res else None
 
     def get_num(self, col, is_header=True):
         if isinstance(col, int) and col > 0:
@@ -582,7 +612,7 @@ class RowData(dict):
 
     def val(self, key, is_header=False, coord=False):
         if isinstance(key, str):
-            key = self.header[key] if is_header else ZeroHeader()._KEY_NUM.get(key.upper())
+            key = self.header[key] if is_header else ZeroHeader()[key]
         if isinstance(key, int) and key > 0:
             val = self[key]
         else:
@@ -591,7 +621,7 @@ class RowData(dict):
 
     def col(self, key, num=True):
         key = self.header[key]
-        return key if num else ZeroHeader().num_key[key]
+        return key if num else ZeroHeader()[key]
 
 
 def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
@@ -703,14 +733,14 @@ def parse_coord(coord, data_col=1):
             elif y.isdigit() or (y[0] == '-' and y[1:].isdigit()):
                 y = int(y)
             elif y.isalpha():
-                y = ZeroHeader()._KEY_NUM.get(y.upper(), 1)
+                y = ZeroHeader()[y] or 1
             else:
                 raise TypeError('列格式不正确。')
 
             return_coord = x, y
 
         elif coord.isalpha():  # 只输入列号，要新建一行
-            return_coord = 0, ZeroHeader()._KEY_NUM.get(coord.upper(), 1)
+            return_coord = 0, ZeroHeader()[coord] or 1
 
         elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
             return_coord = 0, int(coord)
@@ -719,14 +749,14 @@ def parse_coord(coord, data_col=1):
             m = match(r'^[$]?([A-Za-z]{1,3})[$]?(-?\d+)$', coord)
             if m:
                 y, x = m.groups()
-                return_coord = int(x), ZeroHeader()._KEY_NUM.get(y.upper(), 1)
+                return_coord = int(x), ZeroHeader()[y] or 1
 
             else:
                 m = match(r'^[$]?(-?\d+)[$]?([A-Za-z]{1,3})$', coord)
                 if not m:
                     raise ValueError(f'{coord} 坐标格式不正确。')
                 x, y = m.groups()
-                return_coord = int(x), ZeroHeader()._KEY_NUM.get(y.upper(), 1)
+                return_coord = int(x), ZeroHeader()[y] or 1
 
     elif isinstance(coord, (tuple, list)) and len(coord) == 2:
         if (isinstance(coord[0], int) or (isinstance(coord[0], str)
@@ -743,7 +773,7 @@ def parse_coord(coord, data_col=1):
         elif coord[1] in (None, 'new'):
             y = 0
         elif isinstance(coord[1], str):
-            y = ZeroHeader()._KEY_NUM.get(coord[1].upper(), 1)
+            y = ZeroHeader()[coord[1]] or 1
         else:
             raise TypeError('列格式不正确。')
 

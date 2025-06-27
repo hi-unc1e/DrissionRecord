@@ -173,7 +173,7 @@ class RecorderSetter(BaseSetter):
         if isinstance(col, int):
             self._recorder.data_col = col
         elif isinstance(col, str):
-            self._recorder.data_col = ZeroHeader()._KEY_NUM.get(col.upper(), 1)
+            self._recorder.data_col = ZeroHeader()[col] or 1
         elif col is None:
             self._recorder.data_col = 0
         else:
