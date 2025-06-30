@@ -141,11 +141,13 @@ class RecorderSetter(BaseSetter):
         :return: 设置对象自己
         """
         ...
+
     # -------------------上级结束-------------------
 
-    def path(self, path: Union[str, Path]) -> RecorderSetter:
+    def path(self, path: Union[str, Path], file_type: str = None) -> RecorderSetter:
         """设置文件路径
         :param path: 文件路径
+        :param file_type: 指定文件类型
         :return: 设置对象自己
         """
         ...
@@ -199,7 +201,7 @@ class RecorderSetter(BaseSetter):
 
     def file_type(self, file_type: str) -> RecorderSetter:
         """指定文件类型，无视文件后缀名
-        :param file_type: 后缀名字符串
+        :param file_type: 文件类型，可与路径后缀不一致
         :return: 设置对象自己
         """
         ...
