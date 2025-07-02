@@ -271,7 +271,7 @@ class Recorder(BaseRecorder):
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
-                       'coord': (1, get_real_col(cur.get('coord', (1, 1)), ws.max_column)),
+                       'coord': (1, get_real_col(cur.get('coord', (1, 1))[1], ws.max_column)),
                        'new_row': not cur.get('coord', (1, 1))[0],
                        'header': header,
                        'rewrite': rewrite,
