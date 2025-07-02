@@ -9,7 +9,8 @@ from .base import BaseRecorder
 from .setter import RecorderSetter, set_csv_header
 from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, link2ws, height2ws, width2ws,
                     get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
-                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row)
+                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row,
+                    get_ws_real_coord)
 
 
 class Recorder(BaseRecorder):
@@ -261,7 +262,8 @@ class Recorder(BaseRecorder):
             if new_sheet:
                 begin_row = handle_new_sheet(self, ws, data)
             elif self._header.get(ws.title, None) is None:
-                self._header[ws.title] = Header([c.value for c in ws[self._header_row[ws.title]]])
+                self._header[ws.title] = (Header([c.value for c in ws[self._header_row[ws.title]]])
+                                          if ws.title in self._header_row else Header())
 
             header = self._header[ws.title]
             rewrite = False
@@ -271,7 +273,7 @@ class Recorder(BaseRecorder):
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
-                       'coord': (1, get_real_col(cur.get('coord', (1, 1))[1], ws.max_column)),
+                       'coord': (1, get_real_col(cur.get('coord', (1, 1))[1], len(header))),
                        'new_row': not cur.get('coord', (1, 1))[0],
                        'header': header,
                        'rewrite': rewrite,
@@ -283,7 +285,7 @@ class Recorder(BaseRecorder):
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
-                       'coord': get_real_coord(cur.get('coord', (1, 1)), ws.max_row, ws.max_column),
+                       'coord': get_ws_real_coord(cur.get('coord', (1, 1)), ws, header),
                        'new_row': not cur.get('coord', (1, 1))[0],
                        'header': header,
                        'rewrite': rewrite,
@@ -704,7 +706,8 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
                 recorder._header[None] = Header([h for h in data.keys() if isinstance(h, str)])
             else:
                 recorder._header[None] = Header()
-            writer.writerow(ok_list_str(recorder._header[None]))
+            if recorder._header[None]:
+                writer.writerow(ok_list_str(recorder._header[None]))
         else:
             recorder._header[None] = Header()
 

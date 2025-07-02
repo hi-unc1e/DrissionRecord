@@ -135,8 +135,6 @@ class RecorderSetter(BaseSetter):
         return self
 
     def table(self, name):
-        if isinstance(name, bool):
-            name = None
         self._recorder._table = name
         return self
 

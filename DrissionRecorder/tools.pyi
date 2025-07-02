@@ -389,7 +389,7 @@ def ok_list_db(data_list: Iterable) -> list:
     ...
 
 
-def get_real_row(row: int, max_row: int):
+def get_real_row(row: int, max_row: int) -> int:
     """获取返回真正写入文件的行号
     :param row: 输入的行号
     :param max_row: 最大行号
@@ -398,7 +398,7 @@ def get_real_row(row: int, max_row: int):
     ...
 
 
-def get_real_col(col: int, max_col: int):
+def get_real_col(col: int, max_col: int) -> int:
     """获取返回真正写入文件的列序号
     :param col: 输入的列序号
     :param max_col: 最大列号
@@ -407,13 +407,23 @@ def get_real_col(col: int, max_col: int):
     ...
 
 
-def get_real_coord(coord: Union[tuple, list],
+def get_real_coord(coord: tuple,
                    max_row: int,
-                   max_col: Union[int, Worksheet]) -> Tuple[int, int]:
+                   max_col: int) -> Tuple[int, int]:
     """返回真正写入文件的坐标
-    :param coord: 已初步格式化的坐标，如(1, 2)、(None, 3)、(-3, -2)
+    :param coord: 已初步格式化的坐标，如(1, 2)、(0, 3)、(-3, -2)
     :param max_row: 文件最大行
     :param max_col: 文件最大列
+    :return: 真正写入文件的坐标，tuple格式
+    """
+    ...
+
+
+def get_ws_real_coord(coord: tuple, ws: Worksheet, header: Header) -> Tuple[int, int]:
+    """返回真正写入xlsx文件的坐标
+    :param coord: 已初步格式化的坐标，如(1, 2)、(0, 3)、(-3, -2)
+    :param ws: Worksheet对象
+    :param header: Header对象
     :return: 真正写入文件的坐标，tuple格式
     """
     ...

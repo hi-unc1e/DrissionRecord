@@ -819,6 +819,15 @@ def get_real_coord(coord, max_row, max_col):
     return get_real_row(row, max_row), get_real_col(col, max_col)
 
 
+def get_ws_real_coord(coord, ws, header):
+    row, col = coord
+    if row <= 0:
+        row = ws.max_row + row + 1
+    if col <= 0:
+        col = len(header) + col + 1
+    return 1 if row < 1 else row, 1 if col < 1 else col
+
+
 def make_final_data_simplify(recorder, data):
     return data if isinstance(data, (dict, list, tuple)) else list(data)
 

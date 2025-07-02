@@ -114,9 +114,9 @@ class RecorderSetter(BaseSetter):
         """
         ...
 
-    def table(self, name: Union[str, bool]) -> RecorderSetter:
+    def table(self, name: Optional[str]) -> RecorderSetter:
         """设置默认表名
-        :param name: 表名
+        :param name: 表名，None为活动数据表
         :return: 设置对象自己
         """
         ...
@@ -222,9 +222,9 @@ class RecorderSetter(BaseSetter):
         """
         ...
 
-    def data_col(self, col: Union[None, str, int]) -> RecorderSetter:
+    def data_col(self, col: Union[str, int]) -> RecorderSetter:
         """设置用于填充数据的列
-        :param col: 列号或列名，None表示header后面新列
+        :param col: 列号或列名，0表示新列（表头长度后一列）
         :return: 设置对象自己
         """
         ...
