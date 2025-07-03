@@ -47,6 +47,8 @@ class Recorder(BaseRecorder):
         self._header_row = {None: 1}
         self._fast = True
         self._link_style = None
+        self._None_header_is_newest = None
+        self._None_header_row_is_newest = None
         self.data_col = 1
 
     def _set_methods(self, file_type):
@@ -253,9 +255,10 @@ class Recorder(BaseRecorder):
             ws, new_sheet = get_ws(wb, table, tables, new_file)
             new_file = False
             if table is None:
-                if ws.title not in self._header:
+                if self._None_header_is_newest or ws.title not in self._header:
                     self._header[ws.title] = self._header[None]
-                if ws.title not in self._header_row:
+                    self._None_header_is_newest = None
+                if self._None_header_row_is_newest or ws.title not in self._header_row:
                     self._header_row[ws.title] = self._header_row[None]
 
             begin_row = True
@@ -394,7 +397,7 @@ class Recorder(BaseRecorder):
                 pass
         with open(self.path, 'r+', encoding=self.encoding) as f:
             lines = f.readlines()
-            handle_txt_lines(self._data[None], lines, '\n', handle_jsonl_data)
+            handle_txt_lines(self._data[None], lines, '\n', handle_txt_data)
             f.seek(0)
             f.writelines(lines)
 

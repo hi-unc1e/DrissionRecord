@@ -86,7 +86,13 @@ class RecorderSetter(BaseSetter):
         with self._recorder._lock:
             header = Header(header)
             if self._recorder.type == 'xlsx':
-                table = table or self._recorder.table
+                if table is None:
+                    table = self._recorder.table
+                elif table is True:
+                    table = None
+                elif not isinstance(table, str):
+                    raise ValueError('table只能是None、True或str。')
+                self._recorder._None_is_newest = table is None
                 self._recorder._header[table] = header
                 if to_file:
                     set_xlsx_header(self._recorder, header, table, row)
@@ -102,8 +108,18 @@ class RecorderSetter(BaseSetter):
     def header_row(self, num, table=None):
         if num < 0:
             raise ValueError('num不能小于0。')
-        self._recorder._header_row[table] = num
-        self._recorder._header[self._recorder.table] = ZeroHeader() if num == 0 else None
+        self._recorder.record()
+        with self._recorder._lock:
+            if table is None:
+                table = self._recorder.table
+            elif table is True:
+                table = None
+            elif not isinstance(table, str):
+                raise ValueError('table只能是None、True或str。')
+            self._recorder._header_row[table] = num
+            self._recorder._header[table] = ZeroHeader() if num == 0 else None
+            self._recorder._None_header_is_newest = table is None
+            self._recorder._None_header_row_is_newest = table is None
         return self
 
     def delimiter(self, delimiter):
@@ -123,6 +139,8 @@ class RecorderSetter(BaseSetter):
         self.file_type(file_type)
         self._recorder._header = {None: None}
         self._recorder._header_row = {None: 1}
+        self._recorder._None_header_is_newest = None
+        self._recorder._None_header_row_is_newest = None
         return self
 
     def file_type(self, file_type):
