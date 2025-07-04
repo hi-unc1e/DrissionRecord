@@ -23,7 +23,7 @@ class OriginalSetter(object):
         if self._recorder._path:
             self._recorder.record()
         p = Path(path)
-        self._recorder._path = str(p.parent / make_valid_name(p.name))
+        self._recorder._path = str((p.parent / make_valid_name(p.name)).absolute())
         self._recorder._file_exists = False
         return self
 
@@ -31,11 +31,11 @@ class OriginalSetter(object):
         self._recorder.show_msg = on_off
         return self
 
-    def auto_backup(self, interval=None, path=None, new_name=None):
+    def auto_backup(self, interval=None, path=None, overwrite=None):
         if path is not None:
             self._recorder._backup_path = path
-        if isinstance(new_name, bool):
-            self._recorder._backup_new_name = new_name
+        if isinstance(overwrite, bool):
+            self._recorder._backup_overwrite = overwrite
         if interval is not None:
             self._recorder._backup_interval = interval
         return self
@@ -153,7 +153,7 @@ class RecorderSetter(BaseSetter):
         return self
 
     def table(self, name):
-        self._recorder._table = name
+        self._recorder._table = name if name is not True else None
         return self
 
     def follow_styles(self, on_off=True):

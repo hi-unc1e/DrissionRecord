@@ -728,4 +728,4 @@ def get_and_set_csv_header(recorder, new_csv, file, writer):
 
 
 def not_type(*keys):
-    raise RuntimeError('添加数据前请先指定文件路径或类型。')
+    raise RuntimeError('添加数据前请先指定文件路径。')

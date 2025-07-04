@@ -24,7 +24,7 @@ class OriginalRecorder(object):
         self._backup_path = 'backup'
         self._backup_times = 0  # 多少次就自动保存
         self._backup_interval = 0
-        self._backup_new_name = True
+        self._backup_overwrite = False
         self.show_msg = True
         if path:
             self.set.path(path)
@@ -63,13 +63,13 @@ class OriginalRecorder(object):
 
         with self._lock:
             if self._backup_interval and self._backup_times >= self._backup_interval:
-                if self._backup_new_name:
+                if self._backup_overwrite:
+                    name = None
+                else:
                     from datetime import datetime
                     name = Path(self._path)
                     name = f'{Path(self._path).stem}_{datetime.now().strftime("%Y%m%d%H%M%S")}{name.suffix}'
                     name = get_usable_path(Path(self._backup_path) / name).name
-                else:
-                    name = None
                 self.backup(path=self._backup_path, name=name)
 
             self._pause_add = True  # 写入文件前暂缓接收数据

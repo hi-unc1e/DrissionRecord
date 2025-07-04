@@ -38,11 +38,11 @@ class OriginalSetter(object):
     def auto_backup(self,
                     interval: int = None,
                     path: Union[str, Path] = None,
-                    new_name: bool = None) -> OriginalSetter:
+                    overwrite: bool = None) -> OriginalSetter:
         """设置自动备份相关参数
         :param interval: 自动保存多少次时触发备份，为0表示不自动备份，为None时不修改已设置值（初始为0）
         :param path: 备份文件存放路径，为None时不修改已设置值（初始为 'backup'）
-        :param new_name: 是否用新名称备份，为None时不修改已设置值（初始为True）
+        :param overwrite: 是否覆盖原有备份，为False时每个备份都用序号重新命名，为None时不修改已设置值（初始为False）
         :return: 设置对象自己
         """
         ...
