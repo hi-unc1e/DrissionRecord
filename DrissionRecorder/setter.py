@@ -31,9 +31,9 @@ class OriginalSetter(object):
         self._recorder.show_msg = on_off
         return self
 
-    def auto_backup(self, interval=None, path=None, overwrite=None):
-        if path is not None:
-            self._recorder._backup_path = path
+    def auto_backup(self, interval=None, folder=None, overwrite=None):
+        if folder is not None:
+            self._recorder._backup_path = folder
         if isinstance(overwrite, bool):
             self._recorder._backup_overwrite = overwrite
         if interval is not None:

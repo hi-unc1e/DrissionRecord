@@ -22,8 +22,8 @@ class OriginalRecorder(object):
         self._data_count = 0  # 已缓存数据的条数
         self._file_exists = False
         self._backup_path = 'backup'
-        self._backup_times = 0  # 多少次就自动保存
-        self._backup_interval = 0
+        self._backup_times = 0
+        self._backup_interval = 0  # 多少次就自动保存
         self._backup_overwrite = False
         self.show_msg = True
         if path:
@@ -63,14 +63,7 @@ class OriginalRecorder(object):
 
         with self._lock:
             if self._backup_interval and self._backup_times >= self._backup_interval:
-                if self._backup_overwrite:
-                    name = None
-                else:
-                    from datetime import datetime
-                    name = Path(self._path)
-                    name = f'{Path(self._path).stem}_{datetime.now().strftime("%Y%m%d%H%M%S")}{name.suffix}'
-                    name = get_usable_path(Path(self._backup_path) / name).name
-                self.backup(path=self._backup_path, name=name)
+                self.backup(folder=self._backup_path, overwrite=self._backup_overwrite)
 
             self._pause_add = True  # 写入文件前暂缓接收数据
             if self.show_msg:
@@ -118,20 +111,26 @@ class OriginalRecorder(object):
         self._data.clear()
         self._data_count = 0
 
-    def backup(self, path='backup', name=None):
+    def backup(self, folder=None, name=None, overwrite=None):
         src_path = Path(self._path)
         if not self._file_exists:
             if not src_path.exists():
                 return
             self._file_exists = True
 
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+        if overwrite is None:
+            overwrite = self._backup_overwrite
+        folder = Path(folder if folder else self._backup_path)
+        folder.mkdir(parents=True, exist_ok=True)
         if not name:
             name = src_path.name
         elif not name.endswith(src_path.suffix):
             name = f'{name}{src_path.suffix}'
-        path = path / make_valid_name(name)
+        path = folder / make_valid_name(name)
+        if not overwrite and path.exists():
+            from datetime import datetime
+            name = f'{path.stem}_{datetime.now().strftime("%Y%m%d%H%M%S")}{path.suffix}'
+            path = get_usable_path(folder / name)
 
         from shutil import copy
         copy(self._path, path)

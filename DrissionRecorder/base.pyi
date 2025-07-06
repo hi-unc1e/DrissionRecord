@@ -73,11 +73,13 @@ class OriginalRecorder(object):
         ...
 
     def backup(self,
-               path: Union[str, Path] = 'backup',
-               name: str = None) -> None:
+               folder: Union[str, Path, None] = None,
+               name: str = None,
+               overwrite: bool = None) -> None:
         """把当前文件备份到指定路径
-        :param path: 文件夹路径
-        :param name: 保存的文件名，为None使用记录目标指定的文件名
+        :param folder: 文件夹路径，为None使用内置路径（初始 'backup'）
+        :param name: 保存的文件名，可不含后缀，为None使用记录目标指定的文件名
+        :param overwrite: 遇到已存在的文件时是否覆盖，为False时遇到同名文件自动添加序号重命名，为None使用内置设置
         """
         ...
 
