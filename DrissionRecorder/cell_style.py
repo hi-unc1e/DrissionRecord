@@ -127,6 +127,18 @@ class CellStyle(object):
         self.font.set_underline('single' if on_off else None)
         return self
 
+    def set_center(self):
+        self.alignment.set_horizontal('center')
+        self.alignment.set_vertical('center')
+        return self
+
+    def set_border(self, on_off=True):
+        if on_off:
+            self.border.set_quad('thin', 'black')
+        else:
+            self.border.set_quad(None, None)
+        return self
+
     def _cover_to_cell(self, cell):
         if self._font:
             d = _handle_args(self.font_args, self._font, cell.font)

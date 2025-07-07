@@ -115,7 +115,7 @@ class OriginalRecorder(object):
         src_path = Path(self._path)
         if not self._file_exists:
             if not src_path.exists():
-                return
+                return ''
             self._file_exists = True
 
         if overwrite is None:
@@ -135,6 +135,7 @@ class OriginalRecorder(object):
         from shutil import copy
         copy(self._path, path)
         self._backup_times = 0
+        return str(path.absolute())
 
     @abstractmethod
     def add_data(self, data):

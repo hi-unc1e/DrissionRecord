@@ -42,7 +42,7 @@ class OriginalSetter(object):
         """设置自动备份相关参数
         :param interval: 自动保存多少次时触发备份，为0表示不自动备份，为None时不修改已设置值（初始为0）
         :param folder: 备份文件存放文件夹路径，为None时不修改已设置值（初始为 'backup'）
-        :param overwrite: 是否覆盖原有备份，为False时每个备份都用序号重新命名，为None时不修改已设置值（初始为False）
+        :param overwrite: 是否覆盖同名文件，为False时每个文件名都添加当前时间，为None时不修改已设置值（初始为False）
         :return: 设置对象自己
         """
         ...
