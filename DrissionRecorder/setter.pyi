@@ -215,7 +215,7 @@ class RecorderSetter(BaseSetter):
 
     def new_row_styles(self,
                        styles: Union[CellStyle, List[CellStyle], Tuple[CellStyle, ...],
-                       Dict[Any, CellStyle], None]) -> RecorderSetter:
+                       Dict[Union[str, int], CellStyle], None]) -> RecorderSetter:
         """设置新行样式，只有xlsx格式有效，可传入多个，传入None则取消
         :param styles: 传入CellStyle对象设置整个新行，传入CellStyle对象组成的列表设置多个，传入None清空设置
         :return: 设置对象自己
