@@ -284,6 +284,14 @@ class RowData(dict):
         ...
 
 
+def Col(key:str) -> int:
+    """输入列号，输出列序号
+    :param key: 列号'A'
+    :return: 第几列
+    """
+    ...
+
+
 def align_csv(path: Union[str, Path], encoding: str = 'utf-8', delimiter: str = ',', quotechar: str = '"') -> None:
     """补全csv文件，使其每行列数一样多，用于pandas读取时避免出错
     :param path: 要处理的文件路径

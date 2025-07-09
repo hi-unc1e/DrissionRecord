@@ -177,19 +177,19 @@ class Recorder(BaseRecorder):
         self._add({'type': 'width', 'cols': cols, 'width': width, 'header': is_header}, table, self._fast, 1,
                   self._add_others)
 
-    def add_link(self, coord, link, content=None, table=None):
+    def add_link(self, link, coord, content=None, table=None):
         self._methods['addLink'](coord, link, content, table)
 
-    def add_img(self, coord, img_path, width=None, height=None, table=None):
+    def add_img(self, img_path, coord, width=None, height=None, table=None):
         self._methods['addImg'](coord, img_path, width, height, table)
 
-    def add_styles(self, coord, styles, replace=True, table=None):
+    def add_styles(self, styles, coord, replace=True, table=None):
         self._methods['addStyle'](coord, styles, replace, table)
 
-    def add_rows_height(self, rows, height, table=None):
+    def add_rows_height(self, height, rows, table=None):
         self._methods['addHeight'](rows, height, table)
 
-    def add_cols_width(self, cols, width, table=None, is_header=False):
+    def add_cols_width(self, width, cols, table=None, is_header=False):
         self._methods['addWidth'](cols, width, table, is_header)
 
     def rows(self, key_cols=True, sign_col=True, is_header=False,

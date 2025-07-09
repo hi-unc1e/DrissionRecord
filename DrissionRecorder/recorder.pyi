@@ -66,7 +66,8 @@ class Recorder(BaseRecorder):
         """返回表头，只支持csv和xlsx格式"""
         ...
 
-    def add_data(self, data: Any,
+    def add_data(self,
+                 data: Any,
                  coord: Union[list, Tuple[Union[None, int, str], Union[None, int, str]], str, int] = None,
                  table: Union[str, bool] = None) -> None:
         """添加数据，可一次添加多条数据
@@ -78,13 +79,13 @@ class Recorder(BaseRecorder):
         ...
 
     def add_link(self,
-                 coord: Union[int, str, tuple],
                  link: Optional[str],
+                 coord: Union[int, str, tuple],
                  content: Any = None,
                  table: Union[str, True, None] = None) -> None:
         """为单元格设置超链接
-        :param coord: 单元格坐标
         :param link: 超链接，为None时删除链接
+        :param coord: 单元格坐标
         :param content: 单元格内容
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
@@ -92,14 +93,14 @@ class Recorder(BaseRecorder):
         ...
 
     def add_img(self,
-                coord: Union[int, str, tuple],
                 img_path: Union[None, str, Path, dict],
+                coord: Union[int, str, tuple],
                 width: float = None,
                 height: float = None,
                 table: Union[str, True, None] = None) -> None:
         """向单元格设置图片
-        :param coord: 单元格坐标
         :param img_path: 图片路径
+        :param coord: 单元格坐标
         :param width: 图片宽
         :param height: 图片高
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
@@ -108,34 +109,34 @@ class Recorder(BaseRecorder):
         ...
 
     def add_styles(self,
-                   coord: Union[int, str, tuple, list],
                    styles: Union[CellStyle, dict, list, tuple],
+                   coord: Union[int, str, tuple, list],
                    replace: bool = True,
                    table: Union[str, True, None] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
-        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
         :param styles: CellStyle对象，为None则清除单元格样式
+        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
         :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
         """
         ...
 
-    def add_rows_height(self, rows: Union[int, str, list, tuple, True], height: float,
+    def add_rows_height(self, height: float, rows: Union[int, str, list, tuple, True],
                         table: Union[str, True, None] = None) -> None:
         """设置行高，可设置多行
-        :param rows: 行号，可指定多行（1、'1:4'、[1, 2, 3]），为Ture设置所有行
         :param height: 行高
+        :param rows: 行号，可指定多行（1、'1:4'、[1, 2, 3]），为Ture设置所有行
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
         """
         ...
 
-    def add_cols_width(self, cols: Union[int, str, list, tuple, True], width: float,
+    def add_cols_width(self, width: float, cols: Union[int, str, list, tuple, True],
                        table: Union[str, True, None] = None, is_header: bool = False) -> None:
         """设置列宽，可设置多列
-        :param cols: 列号，可指定多列（1、'a'、'序号'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
         :param width: 列宽
+        :param cols: 列号，可指定多列（1、'a'、'序号'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :param is_header: cols里的str是列号还是header
         :return: None

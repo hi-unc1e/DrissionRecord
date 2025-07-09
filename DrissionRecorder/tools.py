@@ -72,7 +72,7 @@ def data2ws_style(recorder, ws, data, coord, header, rewrite, rewrite_method, ne
     if new_row:
         styles = recorder._styles
         if isinstance(styles, dict):
-            styles = ZeroHeader().make_num_dict(styles, None)[0]
+            styles = header.make_num_dict(styles, None)[0]
             styles = [styles.get(c, None) for c in range(1, ws.max_column + 1)]
         elif isinstance(styles, CellStyle):
             styles = [styles] * ws.max_column
@@ -622,6 +622,10 @@ class RowData(dict):
     def col(self, key, num=True):
         key = self.header[key]
         return key if num else ZeroHeader()[key]
+
+
+def Col(key):
+    return ZeroHeader().key_num[key.upper()]
 
 
 def align_csv(path, encoding='utf-8', delimiter=',', quotechar='"'):
