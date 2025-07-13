@@ -528,11 +528,11 @@ class Header(BaseHeader):
             res = self[header_or_num]
             return ZeroHeader()[res] if res else None
 
-    def get_num(self, col, is_header=True):
+    def get_num(self, col):
         if isinstance(col, int) and col > 0:
             return col
         elif isinstance(col, str):
-            return self.key_num.get(col, None) if is_header else Header._KEY_NUM.get(col.upper(), None)
+            return self.key_num.get(col, None)
         else:
             raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
 
@@ -566,7 +566,7 @@ class ZeroHeader(Header):
     def __init__(self):
         return
 
-    def get_num(self, col, is_header=True):
+    def get_num(self, col):
         if isinstance(col, int) and col > 0:
             return col
         elif isinstance(col, str):
@@ -919,16 +919,16 @@ def get_tables(path):
     return tables
 
 
-def get_key_cols(cols, header, is_header):
+def get_key_cols(cols, header):
     if cols is True:
         return True
     elif isinstance(cols, (int, str)):
-        cols = header.get_num(cols, is_header)
+        cols = header.get_num(cols)
         return [cols] if cols else []
     elif isinstance(cols, (list, tuple)):
         res = []
         for i in cols:
-            i = header.get_num(i, is_header)
+            i = header.get_num(i)
             if i:
                 res.append(i)
         return res

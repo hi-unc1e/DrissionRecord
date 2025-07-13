@@ -192,8 +192,8 @@ class Recorder(BaseRecorder):
     def add_cols_width(self, width, cols, table=None, is_header=False):
         self._methods['addWidth'](cols, width, table, is_header)
 
-    def rows(self, key_cols=True, sign_col=True, is_header=False,
-             signs=None, deny_sign=False, count=None, begin_row=None):
+    def rows(self, key_cols=True, sign_col=True,
+             signs=None, deny_sign=False, count=None, begin_row=None, end_row=None):
         if not self._path or not Path(self._path).exists():
             raise RuntimeError('未指定文件路径或文件不存在。')
         if self.type == 'xlsx':
@@ -219,13 +219,13 @@ class Recorder(BaseRecorder):
             begin_row = self._header_row.get(self.table, self._header_row[None]) + 1
 
         if sign_col is not True:
-            sign_col = header.get_num(sign_col, is_header=is_header) or 1
+            sign_col = header.get_num(sign_col) or 1
         if not isinstance(signs, (list, tuple, set)):
             signs = (signs,)
-        key_cols = get_key_cols(key_cols, header, is_header)
+        key_cols = get_key_cols(key_cols, header)
 
-        return method(self, header=header, key_cols=key_cols, begin_row=begin_row, sign_col=sign_col,
-                      sign=signs, deny_sign=deny_sign, count=count, ws=ws)
+        return method(self, header=header, key_cols=key_cols, begin_row=begin_row, end_row=end_row or 0,
+                      sign_col=sign_col, sign=signs, deny_sign=deny_sign, count=count, ws=ws)
 
     def _record(self):
         self._methods[self.type]()
@@ -527,7 +527,7 @@ def get_first_dict(data):
         return data[0]['data'][0]
 
 
-def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sign, count, ws):
+def get_xlsx_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
     rows = ws.rows
     try:
         for _ in range(begin_row - 1):
@@ -536,8 +536,10 @@ def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_si
         return []
 
     if sign_col is True or sign_col > ws.max_column:  # 获取所有行
-        if count:
-            rows = list(rows)[:count]
+        if count or end_row:
+            rows = list(rows)[:(min(count, end_row - begin_row + 1)
+                                if count and end_row else (count or end_row - begin_row + 1))]
+
         if key_cols is True:  # 获取整行
             res = [header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)})
                    for ind, row in enumerate(rows, begin_row)]
@@ -548,16 +550,16 @@ def get_xlsx_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_si
     else:  # 获取符合条件的行
         if count:
             res = get_xlsx_rows_with_count(key_cols, deny_sign, header, rows,
-                                           begin_row, sign_col, sign, count)
+                                           begin_row, end_row, sign_col, sign, count)
         else:
-            res = get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row,
+            res = get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, end_row,
                                               sign_col, sign)
 
     ws.parent.close()
     return res
 
 
-def get_csv_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sign, count, ws):
+def get_csv_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
     sign = ['' if i is None else str(i) for i in sign]
     begin_row -= 1
     res = []
@@ -569,7 +571,12 @@ def get_csv_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sig
 
         if sign_col is True:  # 获取所有行
             header_len = len(header)
-            for ind, line in enumerate(lines[begin_row:count + 1 if count else None], begin_row + 1):
+            if count or end_row:
+                lines = lines[begin_row:(min(count + begin_row, end_row)
+                                         if count and end_row else (end_row or count + begin_row))]
+            else:
+                lines = lines[begin_row:]
+            for ind, line in enumerate(lines, begin_row + 1):
                 if key_cols is True:  # 获取整行
                     if not line:
                         res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
@@ -585,29 +592,29 @@ def get_csv_rows(recorder, header, key_cols, begin_row, sign_col, sign, deny_sig
         else:  # 获取符合条件的行
             sign_col -= 1
             if count:
-                get_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign,
+                get_csv_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign,
                                         key_cols, res, header, count)
             else:
-                get_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign,
+                get_csv_rows_without_count(lines, begin_row, end_row, sign_col, sign, deny_sign,
                                            key_cols, res, header)
 
     return res
 
 
-def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign, count):
+def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, end_row, sign_col, sign, count):
     got = 0
     res = []
     if key_cols is True:  # 获取整行
         if deny_sign:
             for ind, row in enumerate(rows, begin_row):
-                if got == count:
+                if got == count or (end_row and ind > end_row):
                     break
                 if row[sign_col - 1].value not in sign:
                     res.append(header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)}))
                     got += 1
         else:
             for ind, row in enumerate(rows, begin_row):
-                if got == count:
+                if got == count or (end_row and ind > end_row):
                     break
                 if row[sign_col - 1].value in sign:
                     res.append(header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)}))
@@ -616,14 +623,14 @@ def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, sign_
     else:  # 只获取对应的列
         if deny_sign:
             for ind, row in enumerate(rows, begin_row):
-                if got == count:
+                if got == count or (end_row and ind > end_row):
                     break
                 if row[sign_col - 1].value not in sign:
                     res.append(header.make_row_data(ind, {col: row[col - 1].value for col in key_cols}))
                     got += 1
         else:
             for ind, row in enumerate(rows, begin_row):
-                if got == count:
+                if got == count or (end_row and ind > end_row):
                     break
                 if row[sign_col - 1].value in sign:
                     res.append(header.make_row_data(ind, {col: row[col - 1].value for col in key_cols}))
@@ -631,7 +638,11 @@ def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, sign_
     return res
 
 
-def get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, sign_col, sign):
+def get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, end_row, sign_col, sign):
+    if end_row:
+        if end_row < begin_row:
+            return []
+        rows = list(rows)[:end_row - begin_row + 1]
     if key_cols is True:  # 获取整行
         if deny_sign:
             return [header.make_row_data(ind, {col: cell.value for col, cell in enumerate(row, 1)})
@@ -653,10 +664,10 @@ def get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, si
                     if row[sign_col - 1].value in sign]
 
 
-def get_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header, count):
+def get_csv_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header, count):
     got = 0
     header_len = len(header)
-    for ind, line in enumerate(lines[begin_row:], begin_row + 1):
+    for ind, line in enumerate(lines[begin_row:end_row + 1], begin_row + 1):
         if got == count:
             break
         row_sign = '' if sign_col > len(line) - 1 else line[sign_col]
@@ -675,9 +686,9 @@ def get_csv_rows_with_count(lines, begin_row, sign_col, sign, deny_sign, key_col
             got += 1
 
 
-def get_csv_rows_without_count(lines, begin_row, sign_col, sign, deny_sign, key_cols, res, header):
+def get_csv_rows_without_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header):
     header_len = len(header)
-    for ind, line in enumerate(lines[begin_row:], begin_row + 1):
+    for ind, line in enumerate(lines[begin_row:end_row], begin_row + 1):
         row_sign = '' if sign_col > len(line) - 1 else line[sign_col]
         if (row_sign not in sign) if deny_sign else (row_sign in sign):
             if key_cols is True:  # 获取整行

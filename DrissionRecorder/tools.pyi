@@ -246,10 +246,9 @@ class Header(BaseHeader):
         """
         ...
 
-    def get_num(self, col: Union[int, str], is_header: bool = True) -> Optional[int]:
+    def get_num(self, col: Union[int, str]) -> Optional[int]:
         """获取某列序号
         :param col: 列号、列名、表头值
-        :param is_header: 当col为str时，是header的key还是列名
         :return: 列号int
         """
         ...
@@ -496,11 +495,10 @@ def do_nothing(*args, **kwargs) -> None:
     ...
 
 
-def get_key_cols(cols: Union[str, int, list, tuple, bool], header: Header, is_header: bool) -> List[int]:
+def get_key_cols(cols: Union[str, int, list, tuple, bool], header: Header) -> List[int]:
     """获取作为关键字的列，可以是多列
     :param cols: 列号或列名，或它们组成的list或tuple
     :param header: Header格式
-    :param is_header: cols中的str表示header还是列名
     :return: 列序号列表
     """
     ...
