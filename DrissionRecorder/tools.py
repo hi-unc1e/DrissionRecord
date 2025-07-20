@@ -135,46 +135,19 @@ def styles2ws(**kwargs):
                     s = none_style
                 s.to_cell(ws.cell(i, h), replace=mode)
 
-    elif isinstance(styles, CellStyle):
-        if isinstance(coord, str) and ':' in coord:
-            begin, end = coord.split(':', 1)
-            if begin.isalpha() and end.isalpha():
-                if ZeroHeader()[begin] > ZeroHeader()[end]:
-                    begin, end = end, begin
-                for c in ws[f'{begin}:{end}']:
-                    for cc in c:
-                        styles.to_cell(cc, replace=mode)
-            elif begin.isdigit() and end.isdigit():
-                if begin > end:
-                    begin, end = end, begin
-                for c in ws[f'{begin}:{end}']:
-                    for cc in c:
-                        styles.to_cell(cc, replace=mode)
-            else:
-                row1, col1 = parse_coord(begin)
-                row2, col2 = parse_coord(end)
-                if row1 > row2:
-                    row1, row2 = row2, row1
-                if col1 > col2:
-                    col1, col2 = col2, col1
-                for r in range(row1, row2 + 1):
-                    for c in range(col1, col2 + 1):
-                        styles.to_cell(ws.cell(r, c), replace=mode)
-        elif isinstance(coord, int):
-            for c in ws[coord]:
-                styles.to_cell(c, replace=mode)
-        else:
-            styles.to_cell(ws.cell(*parse_coord(coord)), replace=mode)
-
     else:  # list或tuple
+        if isinstance(styles, CellStyle):
+            styles = [styles]
+
         if isinstance(coord, tuple):
             row, col = parse_coord(coord)
             for c, s in enumerate(styles, col):
                 s.to_cell(ws.cell(row, c), replace=mode)
 
         elif isinstance(coord, int):
-            for c, s in enumerate(styles, 1):
-                s.to_cell(ws.cell(coord, c), replace=mode)
+            styles_len = len(styles)
+            for col, cell in enumerate(ws[coord]):
+                styles[col % styles_len].to_cell(cell, replace=mode)
 
         elif isinstance(coord, str):
             if ':' in coord:
@@ -191,16 +164,31 @@ def styles2ws(**kwargs):
                         for ind, cell in enumerate(ws[ZeroHeader()[i]]):
                             styles[ind % styles_len].to_cell(cell, replace=mode)
 
+                elif begin.replace('-', '', 2).isdigit() and end.replace('-', '', 2).isdigit():  # '1:3'形式
+                    max_row = ws.max_row
+                    begin = get_real_row(int(begin), max_row)
+                    end = get_real_row(int(end), max_row)
+                    if begin > end:
+                        begin, end = end, begin
+
+                    styles_len = len(styles)
+                    for r in range(begin, end + 1):
+                        for col, cell in enumerate(ws[r]):
+                            styles[col % styles_len].to_cell(cell, replace=mode)
+
                 elif not begin.isalpha() and not end.isalpha():  # 'A1:C3'形式
-                    row1, col1 = parse_coord(begin)
-                    row2, col2 = parse_coord(end)
+                    max_row = ws.max_row
+                    max_col = ws.max_column
+                    row1, col1 = get_real_coord(parse_coord(begin), max_row, max_col)
+                    row2, col2 = get_real_coord(parse_coord(end), max_row, max_col)
                     if row1 > row2:
                         row1, row2 = row2, row1
                     if col1 > col2:
                         col1, col2 = col2, col1
+                    styles_len = len(styles)
                     for r in range(row1, row2 + 1):
-                        for c, s in enumerate(styles, col1):
-                            s.to_cell(ws.cell(r, c), replace=mode)
+                        for col, cell in enumerate([ws.cell(r, c) for c in range(col1, col2 + 1)]):
+                            styles[col % styles_len].to_cell(cell, replace=mode)
 
             elif coord.isalpha():  # 列'A'形式
                 styles_len = len(styles)

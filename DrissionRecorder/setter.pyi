@@ -105,11 +105,11 @@ class RecorderSetter(BaseSetter):
     def auto_backup(self,
                     interval: int = None,
                     folder: Union[str, Path] = None,
-                    new_name: bool = None) -> RecorderSetter:
+                    overwrite: bool = None) -> RecorderSetter:
         """设置自动备份相关参数
         :param interval: 自动保存多少次时触发备份，为0表示不自动备份，为None时不修改已设置值（初始为0）
         :param folder: 备份文件存放文件夹路径，为None时不修改已设置值（初始为 'backup'）
-        :param new_name: 是否用新名称备份，为None时不修改已设置值（初始为True）
+        :param overwrite: 是否覆盖同名文件，为False时每个文件名都添加当前时间，为None时不修改已设置值（初始为False）
         :return: 设置对象自己
         """
         ...
@@ -260,11 +260,11 @@ class DBSetter(BaseSetter):
     def auto_backup(self,
                     interval: int = None,
                     folder: Union[str, Path] = None,
-                    new_name: bool = None) -> DBSetter:
+                    overwrite: bool = None) -> DBSetter:
         """设置自动备份相关参数
         :param interval: 自动保存多少次时触发备份，为0表示不自动备份，为None时不修改已设置值（初始为0）
         :param folder: 备份文件存放文件夹路径，为None时不修改已设置值（初始为 'backup'）
-        :param new_name: 是否用新名称备份，为None时不修改已设置值（初始为True）
+        :param overwrite: 是否覆盖同名文件，为False时每个文件名都添加当前时间，为None时不修改已设置值（初始为False）
         :return: 设置对象自己
         """
         ...

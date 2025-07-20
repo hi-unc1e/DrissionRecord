@@ -115,8 +115,8 @@ class Recorder(BaseRecorder):
                    table: Union[str, True, None] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param styles: CellStyle对象，为None则清除单元格样式
-        :param coord: 单元格坐标，输入数字可设置整行，输入列名字符串可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
-        :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
+        :param coord: 单元格坐标，输入数字可设置整行，输入列号可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
+        :param replace: 是否直接覆盖所有已有样式，如为`False`只替换设置的属性
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
         """

@@ -157,7 +157,7 @@ class Recorder(BaseRecorder):
 
     def _add_styles(self, coord, styles, replace=True, table=None):
         if isinstance(coord, str):
-            if ':' in coord:
+            if ':' in coord or coord.isalpha():
                 real, coord = coord, (1, 1)
             elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
                 real, coord = int(coord), (1, 1)
