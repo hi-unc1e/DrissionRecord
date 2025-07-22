@@ -250,7 +250,7 @@ class Recorder(BaseRecorder):
              count: int = None,
              begin_row: Optional[int] = None,
              end_row: Optional[int] = None) -> List[RowData]:
-        """返回符合条件的行数据，可指定只要某些列
+        """返回符合条件的行数据，可指定只要某些列。txt格式只有count、begin_row、end_row有效
         :param key_cols: 作为关键字的列，可以是多列，传入表头值或列序号，要用列号用Col('a')，为True获取所有列
         :param sign_col: 用于筛选数据的列，传入表头值或列序号，要用列号用Col('a')，为True获取所有行
         :param signs: 按这个值筛选目标行，可用list, tuple, set设置多个
@@ -408,6 +408,66 @@ def get_xlsx_rows(recorder: Recorder, header: Header, key_cols: Union[list, True
 
 
 def get_csv_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
+                 begin_row: Optional[int], end_row: Optional[int],
+                 sign_col: Union[str, int, bool], sign: Any,
+                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+    """获取csv文件指定行数据
+    :param recorder: Recorder对象
+    :param header: Header对象
+    :param key_cols: 要获取的列，为True获取所有，可指定多列
+    :param begin_row: 开始行号
+    :param end_row: 结束行号，None为最后一行
+    :param sign_col: 作为条件的列
+    :param sign: 按这个值筛选目标行，可设置多个
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param count: 获取多少条数据，为None获取所有
+    :param ws: 与get_xlsx_rows()对应
+    :return: 获取到的数据列表
+    """
+    ...
+
+
+def get_jsonl_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
+                   begin_row: Optional[int], end_row: Optional[int],
+                   sign_col: Union[str, int, bool], sign: Any,
+                   deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+    """获取csv文件指定行数据
+    :param recorder: Recorder对象
+    :param header: Header对象
+    :param key_cols: 要获取的列，为True获取所有，可指定多列
+    :param begin_row: 开始行号
+    :param end_row: 结束行号，None为最后一行
+    :param sign_col: 作为条件的列
+    :param sign: 按这个值筛选目标行，可设置多个
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param count: 获取多少条数据，为None获取所有
+    :param ws: 与get_xlsx_rows()对应
+    :return: 获取到的数据列表
+    """
+    ...
+
+
+def get_json_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
+                  begin_row: Optional[int], end_row: Optional[int],
+                  sign_col: Union[str, int, bool], sign: Any,
+                  deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+    """获取csv文件指定行数据
+    :param recorder: Recorder对象
+    :param header: Header对象
+    :param key_cols: 要获取的列，为True获取所有，可指定多列
+    :param begin_row: 开始行号
+    :param end_row: 结束行号，None为最后一行
+    :param sign_col: 作为条件的列
+    :param sign: 按这个值筛选目标行，可设置多个
+    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+    :param count: 获取多少条数据，为None获取所有
+    :param ws: 与get_xlsx_rows()对应
+    :return: 获取到的数据列表
+    """
+    ...
+
+
+def get_txt_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
                  begin_row: Optional[int], end_row: Optional[int],
                  sign_col: Union[str, int, bool], sign: Any,
                  deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:

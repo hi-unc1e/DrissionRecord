@@ -105,8 +105,8 @@ def styles2ws(**kwargs):
     styles = data['styles']
     coord = (data['real_coord'] if data['real_coord'] is not None
              else get_real_coord(data['coord'], ws.max_row, ws.max_column))
-    if coord == 0:
-        coord = get_real_row(0, ws.max_row)
+    if isinstance(coord, int) and coord < 1:
+        coord = get_real_row(coord, ws.max_row)
     none_style = NoneStyle()
     mode = data['mode'] == 'replace'
 
@@ -411,11 +411,14 @@ class BaseHeader(object):
 
 class Header(BaseHeader):
     def __init__(self, header=None):
-        if isinstance(header, (list, tuple)):
+        if isinstance(header, dict):
+            self._NUM_KEY = {c: str(v) if v not in ('', None) else None for c, v in header.items()}
+        elif isinstance(header, (list, tuple)):
             self._NUM_KEY = {c: str(i) if i not in ('', None) else c
                              for c, i in enumerate(remove_end_Nones(header), start=1)}
-        elif isinstance(header, dict):
-            self._NUM_KEY = {c: str(v) if v not in ('', None) else None for c, v in header.items()}
+        elif isinstance(header, Iterable):
+            self._NUM_KEY = {c: str(i) if i not in ('', None) else c
+                             for c, i in enumerate(remove_end_Nones(list(header)), start=1)}
         else:
             self._NUM_KEY = {}
             self._KEY_NUM = {}

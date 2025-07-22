@@ -84,8 +84,6 @@ class Recorder(BaseRecorder):
 
     @property
     def header(self):
-        if self.type not in ('csv', 'xlsx'):
-            raise TypeError('header属性只支持csv和xlsx类型文件。')
         return get_header(self)
 
     def add_data(self, data, coord=None, table=None):
@@ -211,8 +209,21 @@ class Recorder(BaseRecorder):
         elif self.type == 'csv':
             ws = None
             method = get_csv_rows
+
+        elif self.type == 'jsonl':
+            ws = None
+            method = get_jsonl_rows
+
+        elif self.type == 'json':
+            ws = None
+            method = get_json_rows
+
+        elif self.type == 'txt':
+            ws = None
+            method = get_txt_rows
+
         else:
-            raise RuntimeError('rows()方法只支持xlsx和csv格式。')
+            raise RuntimeError('不支持的文件格式。')
 
         header = get_header(self, ws)
         if not begin_row:
@@ -482,7 +493,7 @@ def get_header(recorder, ws=None):
             wb.close()
         return recorder._header[recorder.table]
 
-    if recorder.type == 'csv':
+    elif recorder.type == 'csv':
         from csv import reader
         with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
             u = reader(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
@@ -491,6 +502,37 @@ def get_header(recorder, ws=None):
                     header = next(u)
             except StopIteration:  # 文件是空的
                 header = []
+        recorder._header[None] = Header(header)
+        return recorder._header[None]
+
+    elif recorder.type == 'jsonl':
+        from json import loads
+        with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
+            try:
+                for _ in range(recorder._header_row[None]):
+                    header = next(f)
+            except StopIteration:  # 文件是空的
+                header = '[]'
+            header = loads(header.strip())
+            if isinstance(header, dict):
+                header = header.keys()
+            elif not isinstance(header, list):
+                header = [str(header)]
+        recorder._header[None] = Header(header)
+        return recorder._header[None]
+
+    elif recorder.type == 'json':
+        from json import load
+        with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
+            j = load(f)
+            if recorder._header_row[None] > len(j):
+                header = []
+            else:
+                header = j[recorder._header_row[None] - 1]
+                if isinstance(header, dict):
+                    header = header.keys()
+                elif not isinstance(header, list):
+                    header = [str(header)]
         recorder._header[None] = Header(header)
         return recorder._header[None]
 
@@ -599,6 +641,19 @@ def get_csv_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign,
                                            key_cols, res, header)
 
     return res
+
+
+def get_jsonl_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    pass
+
+
+def get_json_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    pass
+
+
+def get_txt_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
+        pass
 
 
 def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, end_row, sign_col, sign, count):
