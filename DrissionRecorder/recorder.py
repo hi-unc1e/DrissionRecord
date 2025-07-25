@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 from csv import reader as csv_reader, writer as csv_writer
+from json import loads, load, dump, dumps
 from pathlib import Path
 from time import sleep
 
@@ -10,7 +11,7 @@ from .setter import RecorderSetter, set_csv_header
 from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, link2ws, height2ws, width2ws,
                     get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
                     get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row,
-                    get_ws_real_coord)
+                    get_ws_real_coord, RowData)
 
 
 class Recorder(BaseRecorder):
@@ -226,14 +227,17 @@ class Recorder(BaseRecorder):
             raise RuntimeError('不支持的文件格式。')
 
         header = get_header(self, ws)
-        if not begin_row:
-            begin_row = self._header_row.get(self.table, self._header_row[None]) + 1
 
-        if sign_col is not True:
-            sign_col = header.get_num(sign_col) or 1
         if not isinstance(signs, (list, tuple, set)):
             signs = (signs,)
-        key_cols = get_key_cols(key_cols, header)
+        if self.type in ('csv', 'xlsx'):
+            if sign_col is not True:
+                sign_col = header.get_num(sign_col) or 1
+            key_cols = get_key_cols(key_cols, header)
+            if not begin_row:
+                begin_row = self._header_row.get(self.table, self._header_row[None]) + 1
+        elif not begin_row:
+            begin_row = 1
 
         return method(self, header=header, key_cols=key_cols, begin_row=begin_row, end_row=end_row or 0,
                       sign_col=sign_col, sign=signs, deny_sign=deny_sign, count=count, ws=ws)
@@ -374,7 +378,6 @@ class Recorder(BaseRecorder):
             f.write('\n'.join(all_data) + '\n')
 
     def _to_jsonl_fast(self):
-        from json import dumps
         with open(self.path, 'a+', encoding=self.encoding) as f:
             all_data = []
             for data in self._data[None]:
@@ -383,7 +386,6 @@ class Recorder(BaseRecorder):
             f.write('\n'.join(all_data) + '\n')
 
     def _to_json_fast(self):
-        from json import load, dump
         if self._file_exists or Path(self.path).exists():
             with open(self.path, 'r', encoding=self.encoding) as f:
                 json_data = load(f)
@@ -423,7 +425,6 @@ class Recorder(BaseRecorder):
             f.writelines(lines)
 
     def _to_json_slow(self):
-        from json import load, dump
         if self._file_exists or Path(self.path).exists():
             with open(self.path, 'r', encoding=self.encoding) as f:
                 lines = load(f)
@@ -452,7 +453,6 @@ def handle_txt_data(lines, num, data):
 
 
 def handle_jsonl_data(lines, num, data):
-    from json import dumps
     lines[num] = data if isinstance(data, str) else dumps(data) + '\n'
 
 
@@ -506,7 +506,6 @@ def get_header(recorder, ws=None):
         return recorder._header[None]
 
     elif recorder.type == 'jsonl':
-        from json import loads
         with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
             try:
                 for _ in range(recorder._header_row[None]):
@@ -522,7 +521,6 @@ def get_header(recorder, ws=None):
         return recorder._header[None]
 
     elif recorder.type == 'json':
-        from json import load
         with open(recorder.path, 'r', newline='', encoding=recorder.encoding) as f:
             j = load(f)
             if recorder._header_row[None] > len(j):
@@ -601,61 +599,6 @@ def get_xlsx_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign
     return res
 
 
-def get_csv_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
-    sign = ['' if i is None else str(i) for i in sign]
-    begin_row -= 1
-    res = []
-    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
-        reader = csv_reader(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
-        lines = list(reader)
-        if not lines:
-            return res
-
-        if sign_col is True:  # 获取所有行
-            header_len = len(header)
-            if count or end_row:
-                lines = lines[begin_row:(min(count + begin_row, end_row)
-                                         if count and end_row else (end_row or count + begin_row))]
-            else:
-                lines = lines[begin_row:]
-            for ind, line in enumerate(lines, begin_row + 1):
-                if key_cols is True:  # 获取整行
-                    if not line:
-                        res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
-                    else:
-                        line_len = len(line)
-                        x = max(header_len, line_len)
-                        res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
-                                                              for col in range(1, x + 1)}))
-                else:  # 只获取对应的列
-                    x = len(line) + 1
-                    res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
-
-        else:  # 获取符合条件的行
-            sign_col -= 1
-            if count:
-                get_csv_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign,
-                                        key_cols, res, header, count)
-            else:
-                get_csv_rows_without_count(lines, begin_row, end_row, sign_col, sign, deny_sign,
-                                           key_cols, res, header)
-
-    return res
-
-
-def get_jsonl_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
-    pass
-
-
-def get_json_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
-    pass
-
-
-def get_txt_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
-    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
-        pass
-
-
 def get_xlsx_rows_with_count(key_cols, deny_sign, header, rows, begin_row, end_row, sign_col, sign, count):
     got = 0
     res = []
@@ -719,11 +662,58 @@ def get_xlsx_rows_without_count(key_cols, deny_sign, header, rows, begin_row, en
                     if row[sign_col - 1].value in sign]
 
 
+def get_csv_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    sign = ['' if i is None else str(i) for i in sign]
+    begin_row -= 1
+    res = []
+    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
+        try:
+            for i in range(begin_row):
+                next(f)
+        except StopIteration:
+            return res
+        reader = csv_reader(f, delimiter=recorder.delimiter, quotechar=recorder.quote_char)
+
+        if sign_col is True:  # 获取所有行
+            header_len = len(header)
+            if count or end_row:
+                end = min(count + begin_row, end_row) if count and end_row else (end_row or count + begin_row)
+            else:
+                end = False
+            method = get_csv_rows_key_is_True if key_cols is True else get_csv_rows_key_not_True
+            for ind, line in enumerate(reader, begin_row + 1):
+                if end and ind > end:
+                    break
+                method(line, res, header, ind, key_cols, header_len)
+
+        else:  # 获取符合条件的行
+            sign_col -= 1
+            get_csv_rows_with_count(reader, begin_row, end_row, sign_col, sign, deny_sign,
+                                    key_cols, res, header, count)
+
+    return res
+
+
+def get_csv_rows_key_is_True(line, res, header, ind, key_cols, header_len):
+    if not line:
+        res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
+    else:
+        line_len = len(line)
+        x = max(header_len, line_len)
+        res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
+                                              for col in range(1, x + 1)}))
+
+
+def get_csv_rows_key_not_True(line, res, header, ind, key_cols, header_len):
+    x = len(line) + 1
+    res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
+
+
 def get_csv_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header, count):
     got = 0
     header_len = len(header)
-    for ind, line in enumerate(lines[begin_row:end_row + 1], begin_row + 1):
-        if got == count:
+    for ind, line in enumerate(lines, begin_row + 1):
+        if (end_row and ind > end_row) or (count and got == count):
             break
         row_sign = '' if sign_col > len(line) - 1 else line[sign_col]
         if (row_sign not in sign) if deny_sign else (row_sign in sign):
@@ -741,22 +731,158 @@ def get_csv_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign
             got += 1
 
 
-def get_csv_rows_without_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header):
+def get_jsonl_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    sign = ['' if i is None else str(i) for i in sign]
+    begin_row -= 1
+    res = []
+    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
+        try:
+            for i in range(begin_row):
+                next(f)
+        except StopIteration:
+            return res
+
+        if sign_col is True:  # 获取所有行
+            header_len = len(header)
+            if count or end_row:
+                end = min(count + begin_row, end_row) if count and end_row else (end_row or count + begin_row)
+            else:
+                end = False
+            method = get_jsonl_rows_key_is_True if key_cols is True else get_jsonl_rows_key_not_True
+            for ind, line in enumerate(f, begin_row + 1):
+                if end and ind > end:
+                    break
+                line = loads(line.strip())
+                method(line, res, header, ind, key_cols, header_len)
+
+        else:  # 获取符合条件的行
+            get_jsonl_rows_with_count(f, begin_row, end_row, sign_col, sign, deny_sign,
+                                      key_cols, res, header, count)
+
+    return res
+
+
+def get_jsonl_rows_key_is_True(line, res, header, ind, key_cols, header_len):
+    if isinstance(line, dict):
+        res.append(RowData(ind, header, None, line))
+    elif isinstance(line, list):
+        if not line:
+            res.append(header.make_row_data(ind, {col: None for col in range(1, header_len + 1)}))
+        else:
+            line_len = len(line)
+            x = max(header_len, line_len)
+            res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else None
+                                                  for col in range(1, x + 1)}))
+
+
+def get_jsonl_rows_key_not_True(line, res, header, ind, key_cols, header_len):
+    if isinstance(line, dict):
+        header = Header(line.keys())
+        key_cols = get_key_cols(key_cols, header)
+        res.append(RowData(ind, header, None, {header[c]: line[header[c]] for c in key_cols}))
+    else:
+        x = len(line) + 1
+        key_cols = get_key_cols(key_cols, header)
+        res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else None for col in key_cols}))
+
+
+def get_jsonl_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header, count):
+    got = 0
     header_len = len(header)
-    for ind, line in enumerate(lines[begin_row:end_row], begin_row + 1):
-        row_sign = '' if sign_col > len(line) - 1 else line[sign_col]
+    for ind, line in enumerate(lines, begin_row + 1):
+        if (end_row and ind > end_row) or (count and got == count):
+            break
+        line = loads(line.strip())
+        if isinstance(sign_col, str):
+            if isinstance(line, dict):
+                row_sign = line[sign_col]
+            else:  # list
+                sign_col = header[sign_col]
+                row_sign = None if sign_col > len(line) else line[sign_col - 1]
+        else:  # int
+            if isinstance(line, dict):
+                row_sign = None if sign_col > len(line) else line[list(line.keys())[sign_col - 1]]
+            else:
+                row_sign = None if sign_col > len(line) else line[sign_col - 1]
+
         if (row_sign not in sign) if deny_sign else (row_sign in sign):
             if key_cols is True:  # 获取整行
-                if not line:
-                    res.append(header.make_row_data(ind, {col: '' for col in range(1, header_len + 1)}))
-                else:
-                    line_len = len(line)
-                    x = max(header_len, line_len)
-                    res.append(header.make_row_data(ind, {col: line[col - 1] if col <= line_len else ''
-                                                          for col in range(1, x + 1)}))
+                get_jsonl_rows_key_is_True(line, res, header, ind, key_cols, header_len)
             else:  # 只获取对应的列
-                x = len(line) + 1
-                res.append(header.make_row_data(ind, {col: line[col - 1] if col < x else '' for col in key_cols}))
+                get_jsonl_rows_key_not_True(line, res, header, ind, key_cols, header_len)
+            got += 1
+
+
+def get_json_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    sign = ['' if i is None else str(i) for i in sign]
+    begin_row -= 1
+    res = []
+    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
+        lines = load(f)
+        if sign_col is True:  # 获取所有行
+            header_len = len(header)
+            if count or end_row:
+                end = min(count + begin_row, end_row) if count and end_row else (end_row or count + begin_row)
+            else:
+                end = None
+            method = get_jsonl_rows_key_is_True if key_cols is True else get_jsonl_rows_key_not_True
+            for ind, line in enumerate(lines[begin_row:end], begin_row + 1):
+                if not isinstance(line, (dict, list)):
+                    line = [line]
+                method(line, res, header, ind, key_cols, header_len)
+
+        else:  # 获取符合条件的行
+            get_json_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign,
+                                     key_cols, res, header, count)
+    return res
+
+
+def get_json_rows_with_count(lines, begin_row, end_row, sign_col, sign, deny_sign, key_cols, res, header, count):
+    got = 0
+    header_len = len(header)
+    for ind, line in enumerate(lines, begin_row + 1):
+        if (end_row and ind > end_row) or (count and got == count):
+            break
+        if not isinstance(line, (dict, list)):
+            line = [line]
+        if isinstance(sign_col, str):
+            if isinstance(line, dict):
+                row_sign = line[sign_col]
+            else:  # list
+                sign_col = header[sign_col]
+                row_sign = None if sign_col > len(line) else line[sign_col - 1]
+        else:  # int
+            if isinstance(line, dict):
+                row_sign = None if sign_col > len(line) else line[list(line.keys())[sign_col - 1]]
+            else:
+                row_sign = None if sign_col > len(line) else line[sign_col - 1]
+
+        if (row_sign not in sign) if deny_sign else (row_sign in sign):
+            if key_cols is True:  # 获取整行
+                get_jsonl_rows_key_is_True(line, res, header, ind, key_cols, header_len)
+            else:  # 只获取对应的列
+                get_jsonl_rows_key_not_True(line, res, header, ind, key_cols, header_len)
+            got += 1
+
+
+def get_txt_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign, deny_sign, count, ws):
+    begin_row -= 1
+    res = []
+    with open(recorder.path, 'r', encoding=recorder.encoding) as f:
+        try:
+            for i in range(begin_row):
+                next(f)
+        except StopIteration:
+            return res
+
+        got = 0
+        for ind, line in enumerate(f, begin_row + 1):
+            if (end_row and ind > end_row) or (count and got == count):
+                break
+            res.append(RowData(ind, header, '', {None: line.strip()}))
+            got += 1
+
+    return res
 
 
 def get_and_set_csv_header(recorder, new_csv, file, writer):

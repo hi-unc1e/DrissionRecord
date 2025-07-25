@@ -4,7 +4,7 @@ _header格式：{表名: Header对象}
 表名为None表示默认sheet或csv文件
 未设置header时值为None
 """
-from csv import writer as csv_writer
+from csv import writer, reader
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Any, Optional, Union, List, Dict, Tuple, Callable, Iterable
@@ -427,6 +427,14 @@ def get_csv_rows(recorder: Recorder, header: Header, key_cols: Union[list, True]
     ...
 
 
+def get_csv_rows_key_is_True(line: Union[list, dict], res: list, header: Header, ind: int,
+                             key_cols: list, header_len: int) -> None: ...
+
+
+def get_csv_rows_key_not_True(line: Union[list, dict], res: list, header: Header, ind: int,
+                              key_cols: list, header_len: int) -> None: ...
+
+
 def get_jsonl_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
                    begin_row: Optional[int], end_row: Optional[int],
                    sign_col: Union[str, int, bool], sign: Any,
@@ -445,6 +453,24 @@ def get_jsonl_rows(recorder: Recorder, header: Header, key_cols: Union[list, Tru
     :return: 获取到的数据列表
     """
     ...
+
+
+def get_jsonl_rows_key_is_True(line: Union[list, dict], res: list, header: Header, ind: int,
+                               key_cols: list, header_len: int) -> None: ...
+
+
+def get_jsonl_rows_key_not_True(line: Union[list, dict], res: list, header: Header, ind: int,
+                                key_cols: list, header_len: int) -> None: ...
+
+
+def get_jsonl_rows_with_count(lines: TextIOWrapper, begin_row: Optional[int], end_row: Optional[int],
+                              sign_col: Union[str, int, bool], sign: Any, deny_sign: bool,
+                              key_cols: Union[list, True], res, header: Header, count: int) -> None: ...
+
+
+def get_json_rows_with_count(lines: list, begin_row: Optional[int], end_row: Optional[int],
+                             sign_col: Union[str, int, bool], sign: Any, deny_sign: bool,
+                             key_cols: Union[list, True], res, header: Header, count: int) -> None: ...
 
 
 def get_json_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
@@ -523,7 +549,7 @@ def get_xlsx_rows_without_count(key_cols: Union[list, True], deny_sign: bool, he
     ...
 
 
-def get_csv_rows_with_count(lines, begin_row: Optional[int], end_row: Optional[int],
+def get_csv_rows_with_count(lines: reader, begin_row: Optional[int], end_row: Optional[int],
                             sign_col: Union[str, int, bool], sign: Any, deny_sign: bool,
                             key_cols: Union[list, True], res, header: Header, count: int) -> List[RowData]:
     """执行从csv中获取数据，有指定数量
@@ -542,25 +568,7 @@ def get_csv_rows_with_count(lines, begin_row: Optional[int], end_row: Optional[i
     ...
 
 
-def get_csv_rows_without_count(lines, begin_row: Optional[int], end_row: Optional[int],
-                               sign_col: Union[str, int, bool], sign: Any,
-                               deny_sign: bool, key_cols: Union[list, True], res, header: Header) -> List[RowData]:
-    """执行从csv中获取全部数据
-    :param lines:
-    :param begin_row: 开始行号
-    :param end_row: 结束行号，None为最后一行
-    :param sign_col: 用于筛选数据的列
-    :param sign: 用于筛选数据的值
-    :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
-    :param key_cols: 要获取的列，True为所有
-    :param res: 结果列表
-    :param header: Header对象
-    :return: 数据对象列表
-    """
-    ...
-
-
-def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: csv_writer) -> None:
+def get_and_set_csv_header(recorder: Recorder, new_csv: bool, file: TextIOWrapper, writer: writer) -> None:
     """从csv获取表头或把已获取的表头设置到新csv
     :param recorder: Recorder对象
     :param new_csv: 是否新csv文件
