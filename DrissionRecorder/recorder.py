@@ -11,7 +11,7 @@ from .setter import RecorderSetter, set_csv_header
 from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, link2ws, height2ws, width2ws,
                     get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
                     get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row,
-                    get_ws_real_coord, RowData)
+                    get_ws_real_coord, RowData, RowText)
 
 
 class Recorder(BaseRecorder):
@@ -879,7 +879,9 @@ def get_txt_rows(recorder, header, key_cols, begin_row, end_row, sign_col, sign,
         for ind, line in enumerate(f, begin_row + 1):
             if (end_row and ind > end_row) or (count and got == count):
                 break
-            res.append(RowData(ind, header, '', {None: line.strip()}))
+            t = RowText(line.strip())
+            t.row = ind
+            res.append(t)
             got += 1
 
     return res

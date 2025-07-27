@@ -592,14 +592,14 @@ class RowData(dict):
     def __init__(self, row, header, None_val, seq):
         self.header = header
         self.row = row
-        self.None_val = None_val
+        self._None_val = None_val
         super().__init__(seq)
 
     def __getitem__(self, item):
         ite = self.header[item] if isinstance(item, int) else item
         if ite is None:
             raise RuntimeError(f'header中无{item}项。\nheader：{self.header.values()}')
-        return self.get(ite, self.None_val)
+        return self.get(ite, self._None_val)
 
     def val(self, key, is_header=True, coord=False):
         if isinstance(key, str):
@@ -613,6 +613,13 @@ class RowData(dict):
     def col(self, key, num=True):
         key = self.header[key]
         return key if num else ZeroHeader()[key]
+
+
+class RowText(str):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+        self.row = None
 
 
 def Col(key):

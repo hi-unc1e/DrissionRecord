@@ -154,7 +154,7 @@ class RecorderSetter(BaseSetter):
 
     def header(self, header: Union[list, tuple], table: Union[str, None, True] = None,
                to_file: bool = True, row: int = None) -> RecorderSetter:
-        """设置表头。只有 csv 和 xlsx 格式支持设置表头
+        """设置表头
         :param header: 表头，列表或元组
         :param table: 表名，只xlsx格式文件有效，为True表示活动数据表，为None表示不改变设置
         :param to_file: 是否写入到文件

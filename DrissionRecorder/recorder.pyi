@@ -14,7 +14,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from .base import BaseRecorder
 from .setter import RecorderSetter
 from .cell_style import CellStyle
-from .tools import Header, RowData
+from .tools import Header, RowData, RowText
 
 
 class Recorder(BaseRecorder):
@@ -243,22 +243,22 @@ class Recorder(BaseRecorder):
         ...
 
     def rows(self,
-             key_cols: Union[str, int, list, tuple, bool] = True,
+             key_cols: Union[str, int, list, tuple, True] = True,
              sign_col: Union[str, int, True] = True,
              signs: Any = None,
              deny_sign: bool = False,
              count: int = None,
              begin_row: Optional[int] = None,
-             end_row: Optional[int] = None) -> List[RowData]:
+             end_row: Optional[int] = None) -> List[RowData, RowText]:
         """返回符合条件的行数据，可指定只要某些列。txt格式只有count、begin_row、end_row有效
         :param key_cols: 作为关键字的列，可以是多列，传入表头值或列序号，要用列号用Col('a')，为True获取所有列
         :param sign_col: 用于筛选数据的列，传入表头值或列序号，要用列号用Col('a')，为True获取所有行
         :param signs: 按这个值筛选目标行，可用list, tuple, set设置多个
-        :param deny_sign: 是否反向匹配sign，即筛选指不是sign的行
+        :param deny_sign: 是否反向匹配sign，即筛选值不是sign的行
         :param count: 获取多少条数据，为None获取所有
         :param begin_row: 数据开始的行，None表示header_row后面一行
-        :param end_row: 数据结束的行，None最后一行
-        :return: RowData对象
+        :param end_row: 数据结束的行，None表示最后一行
+        :return: txt文件返回RowText对象组成的列表，其它返回RowData对象组成的列表，
         """
         ...
 
@@ -496,7 +496,7 @@ def get_json_rows(recorder: Recorder, header: Header, key_cols: Union[list, True
 def get_txt_rows(recorder: Recorder, header: Header, key_cols: Union[list, True],
                  begin_row: Optional[int], end_row: Optional[int],
                  sign_col: Union[str, int, bool], sign: Any,
-                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowData]:
+                 deny_sign: bool, count: int, ws: Worksheet) -> List[RowText]:
     """获取csv文件指定行数据
     :param recorder: Recorder对象
     :param header: Header对象
