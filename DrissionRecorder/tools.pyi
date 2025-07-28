@@ -265,22 +265,13 @@ class RowData(dict):
 
     def __init__(self, row: int, header: Header, None_val: Optional[''], seq: dict): ...
 
-    def val(self, key: Union[int, str], is_header: bool = True, coord: bool = False) -> Any:
-        """当前行获取指定列的值
-        :param key: 为int时表示列序号，为str时表示列号或header key
-        :param is_header: 为str时是header key还是列号
-        :param coord: 为True时返回结果带坐标
-        :return: coord为False时返回指定列的值，为Ture时返回(坐标, 值)
+    def coord(self, key_or_num: Union[int, str]) -> Tuple[Tuple[int, str], Any]:
+        """返回数据中指定列的坐标
+        :param key_or_num: 为int时表示列序号，为str时表示表头值
+        :return: 返回(行号, 列号)
         """
         ...
 
-    def col(self, key: str, num: bool = True) -> Union[str, int]:
-        """获取指定表头项数据所在列
-        :param key: 表头项
-        :param num: 为True时返回列序号，否则返回列号
-        :return: num: 为True时返回int格式列序号，否则返回str格式列号
-        """
-        ...
 
 
 class RowText(str):

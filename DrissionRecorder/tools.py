@@ -601,18 +601,8 @@ class RowData(dict):
             raise RuntimeError(f'header中无{item}项。\nheader：{self.header.values()}')
         return self.get(ite, self._None_val)
 
-    def val(self, key, is_header=True, coord=False):
-        if isinstance(key, str):
-            key = self.header[key] if is_header else ZeroHeader()[key]
-        if isinstance(key, int) and key > 0:
-            val = self[key]
-        else:
-            raise ValueError('key只能传入str或大于0的int。')
-        return ((self.row, key), val) if coord else val
-
-    def col(self, key, num=True):
-        key = self.header[key]
-        return key if num else ZeroHeader()[key]
+    def coord(self, key_or_num):
+        return self.row, self.header.get_col(key_or_num)
 
 
 class RowText(str):
