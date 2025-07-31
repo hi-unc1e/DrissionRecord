@@ -129,14 +129,14 @@ class RecorderSetter(BaseSetter):
         ...
 
     def after(self, data: Any) -> RecorderSetter:
-        """设置在数据后面补充的列
+        """设置在每条数据后面补充的数据
         :param data: 列表、元组或字符串，为字符串时则补充一列
         :return: 设置对象自己
         """
         ...
 
     def before(self, data: Any) -> RecorderSetter:
-        """设置在数据前面补充的列
+        """设置在每条数据前面补充的数据
         :param data: 列表、元组或字符串，为字符串时则补充一列
         :return: 设置对象自己
         """
@@ -164,7 +164,7 @@ class RecorderSetter(BaseSetter):
         ...
 
     def header_row(self, num: int, table: Union[str, None, True] = None) -> RecorderSetter:
-        """设置标题行号
+        """设置表头行号
         :param num: 行号
         :param table: 表名，为True表示活动数据表，为None表示不改变设置
         :return: 设置对象自己
@@ -172,7 +172,7 @@ class RecorderSetter(BaseSetter):
         ...
 
     def encoding(self, encoding: str) -> BaseSetter:
-        """设置编码
+        """设置文本类型文件的编码
         :param encoding: 编码格式
         :return: 设置对象自己
         """
@@ -193,7 +193,7 @@ class RecorderSetter(BaseSetter):
         ...
 
     def follow_styles(self, on_off: bool = True) -> RecorderSetter:
-        """设置是否跟随上一行的style，只有xlsx格式有效
+        """设置是否跟随上一行的样式，只有xlsx格式有效
         :param on_off: True或False
         :return: 设置对象自己
         """
@@ -223,15 +223,15 @@ class RecorderSetter(BaseSetter):
         ...
 
     def data_col(self, col: Union[str, int]) -> RecorderSetter:
-        """设置用于填充数据的列
-        :param col: 列号或列名，0表示新列（表头长度后一列）
+        """设置默认填充数据的列
+        :param col: 列号或列序号，从1开始，负数表示从后往前数，0表示新列（表头长度后一列），不支持输入表头值
         :return: 设置对象自己
         """
         ...
 
     def link_style(self, style: Union[CellStyle, True] = True) -> RecorderSetter:
         """设置单元格的链接样式
-        :param style: CellStyle对象
+        :param style: CellStyle对象，为True时使用内置的默认样式
         :return: 设置对象自己
         """
         ...
