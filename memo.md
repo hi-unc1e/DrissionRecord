@@ -25,6 +25,7 @@ xlsx 和 csv 格式支持设置表头格式：
 ## 数据格式
 
 `Recorder`数据格式：
+
 ```python
 {None: [],
  'table1': []}

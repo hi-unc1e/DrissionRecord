@@ -6,11 +6,9 @@
 
 支持多线程同时写入文件。
 
-**交流QQ群：** 897838127
+**联系邮箱：** g1879@qq.com
 
-**联系邮箱：** g1879@qq.com
-
-**使用手册：** 📒[点击打开](https://DrissionPage.cn/DrissionRecorder/)
+**使用手册：** 📒[点击打开](https://DrissionPage.cn/DrissionRecord/)
 
 # ✨️ 理念
 
@@ -42,14 +40,20 @@
 
 这里简要介绍各种工具用途，详细用法请查看使用方法章节。
 
+各个工具有着相同的使用逻辑：创建对象 -> 添加数据 -> 记录数据。
+
 ## ⚡ 记录器`Recorder`
 
-`Recorder`的功能简单直观高效实用，只做一个动作，就是不断接收数据，按顺序往文件里添加。可以接收单行数据，或二维数据一次写入多行。
+`Recorder`的功能强大直观高效实用。可以接收单行数据，或二维数据一次写入多行。
 
-它支持 csv、xlsx、json、txt 四种格式文件。
+可指定坐标写入数据，也可为 xlsx 设置单元格格式、图片和链接等。
+
+支持自动匹配表头，支持文件数据读取。
+
+支持 csv、xlsx、json、jsonl、txt 四种格式文件。
 
 ```python
-from DrissionRecorder import Recorder
+from DrissionRecord import Recorder
 
 data = ((1, 2, 3, 4), 
         (5, 6, 7, 8))
@@ -59,30 +63,14 @@ r.add_data(data)  # 一次记录多行数据
 r.add_data('abc')  # 记录单行数据
 ```
 
-## ⚡ 表格填充器`Filler`
-
-`Filler`用于对表格文件填写数据，可以指定填其坐标。它的使用非常灵活，可以指定坐标为左上角，填入一片二维数据。还封装了记录数据处理进度的功能（比如断点续爬）。
-
-除此以外，它还能给单元格设置链接和样式。
-
-它只支持 csv 和 xlsx 格式文件。
-
-```python
-from DrissionRecorder import Filler
-
-f = Filler('results.csv')
-f.add_data((1, 2, 3, 4), 'a2')  # 从A2单元格开始，写入一行数据
-f.add_data(((1, 2), (3, 4)), 'd4')  # 以D4单元格为左上角，写入一片二维数据
-```
-
 ## ⚡ 二进制数据记录器`ByteRecorder`
 
-`ByteRecorder`用法最简单，它和`Recorder`类似，记录多个数据然后按顺序写入文件。不一样的是它只接收二进制数据，每次`add_data()`只能输入一条数据，而且没有行的概念。
+`ByteRecorder`用法最简单，它和`Recorder`类似，记录多个数据然后按顺序写入文件。
 
-支持任意文件格式。
+不一样的是它只接收二进制数据，每次`add_data()`只能输入一条数据，而且没有行的概念。
 
 ```python
-from DrissionRecorder import ByteRecorder
+from DrissionRecord import ByteRecorder
 
 b = ByteRecorder('data.file')
 b.add_data(b'*****************')  # 向文件写入二进制数据
@@ -93,7 +81,7 @@ b.add_data(b'*****************')  # 向文件写入二进制数据
 支持 sqlite，用法和`Recorder`一致，支持自动创建数据库、数据表、数据列。
 
 ```python
-from DrissionRecorder import DBRecorder
+from DrissionRecord import DBRecorder
 
 d = DBRecorder('data.db')
 d.add_data({'name': '张三', 'age': 25}, table='user')  # 插入数据到user表

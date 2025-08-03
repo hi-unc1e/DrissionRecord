@@ -4,4 +4,4 @@ from .recorder import Recorder
 from .cell_style import CellStyle
 from .tools import Col
 
-__version__ = '4.0.0b5'
+__version__ = '1.0.0b0'

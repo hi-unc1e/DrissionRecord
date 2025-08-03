@@ -1,12 +1,12 @@
 # -*- coding:utf-8 -*-
 from setuptools import setup, find_packages
-from DrissionRecorder import __version__
+from DrissionRecord import __version__
 
 with open("README.md", "r", encoding='utf-8') as fh:
     long_description = fh.read()
 
 setup(
-    name="DrissionRecorder",
+    name="DrissionRecord",
     version=__version__,
     author="g1879",
     author_email="g1879@qq.com",
@@ -14,8 +14,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="MIT",
-    keywords="DrissionRecorder",
-    url="https://gitee.com/g1879/DrissionRecorder",
+    keywords="DrissionRecord",
+    url="https://gitcode.com/g1879/DrissionRecord",
     include_package_data=True,
     packages=find_packages(),
     install_requires=[
