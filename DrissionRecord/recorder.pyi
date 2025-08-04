@@ -249,7 +249,7 @@ class Recorder(BaseRecorder):
              deny_sign: bool = False,
              count: int = None,
              begin_row: Optional[int] = None,
-             end_row: Optional[int] = None) -> List[RowData, RowText]:
+             end_row: Optional[int] = None) -> List[Union[RowData, RowText]]:
         """返回符合条件的行数据，可指定只要某些列。txt格式只有count、begin_row、end_row有效
         :param key_cols: 作为关键字的列，可以是多列，传入表头值或列序号，要用列号用Col('a')，为True获取所有列
         :param sign_col: 用于筛选数据的列，传入表头值或列序号，要用列号用Col('a')，为True获取所有行

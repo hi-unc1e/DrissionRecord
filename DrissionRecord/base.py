@@ -9,8 +9,6 @@ from .tools import get_usable_path, make_valid_name, get_tables, make_final_data
 
 
 class OriginalRecorder(object):
-    _SUPPORTS = ('any',)
-
     def __init__(self, path=None, cache_size=1000):
         self._data = []
         self._path = None
@@ -147,8 +145,6 @@ class OriginalRecorder(object):
 
 
 class BaseRecorder(OriginalRecorder):
-    _SUPPORTS = ('xlsx', 'csv')
-
     def __init__(self, path=None, cache_size=None):
         super().__init__(path, cache_size)
         self._before = []

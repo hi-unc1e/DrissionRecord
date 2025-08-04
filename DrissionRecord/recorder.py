@@ -15,8 +15,6 @@ from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, lin
 
 
 class Recorder(BaseRecorder):
-    _SUPPORTS = ('csv', 'xlsx', 'txt', 'jsonl', 'json')
-
     def __init__(self, path=None, cache_size=1000):
         self._header = {None: None}
         self._methods = {'xlsx': self._to_xlsx_fast,
@@ -195,6 +193,7 @@ class Recorder(BaseRecorder):
              signs=None, deny_sign=False, count=None, begin_row=None, end_row=None):
         if not self._path or not Path(self._path).exists():
             raise RuntimeError('未指定文件路径或文件不存在。')
+
         if self.type == 'xlsx':
             wb = load_workbook(self.path, data_only=True, read_only=True)
             if self.table and self.table not in [i.title for i in wb.worksheets]:
@@ -204,7 +203,6 @@ class Recorder(BaseRecorder):
                 wb.close()
                 wb = load_workbook(self.path, data_only=True)
                 ws = wb[self.table] if self.table else wb.active
-
             method = get_xlsx_rows
 
         elif self.type == 'csv':

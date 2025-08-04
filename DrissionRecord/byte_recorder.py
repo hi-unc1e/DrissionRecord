@@ -6,7 +6,6 @@ from .base import OriginalRecorder
 
 
 class ByteRecorder(OriginalRecorder):
-    _SUPPORTS = ('any',)
     __END = (0, 2)
 
     def __init__(self, path=None, cache_size=1000):

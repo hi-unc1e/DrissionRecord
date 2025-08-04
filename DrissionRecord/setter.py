@@ -144,7 +144,7 @@ class RecorderSetter(BaseSetter):
         return self
 
     def file_type(self, file_type):
-        if file_type not in self._recorder._SUPPORTS:
+        if file_type not in ('csv', 'xlsx', 'txt', 'jsonl', 'json'):
             file_type = 'txt'
         self._recorder._type = file_type
         self._recorder._set_methods(file_type)

@@ -9,8 +9,6 @@ from .tools import ok_list_db, is_sigal_data, is_1D_data
 
 
 class DBRecorder(BaseRecorder):
-    _SUPPORTS = ('db',)
-
     def __init__(self, path=None, cache_size=1000, table=None):
         self._conn = None
         self._cur = None
