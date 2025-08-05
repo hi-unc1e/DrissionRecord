@@ -246,9 +246,9 @@ class Header(BaseHeader):
         """
         ...
 
-    def get_num(self, col: Union[int, str]) -> Optional[int]:
-        """获取某列序号
-        :param col: 列号、列名、表头值
+    def get_num(self, header_or_num: Union[int, str]) -> Optional[int]:
+        """返回指定列序号或表头值对应的列序号
+        :param header_or_num: 列号、表头值
         :return: 列号int
         """
         ...
@@ -265,13 +265,21 @@ class RowData(dict):
 
     def __init__(self, row: int, header: Header, None_val: Optional[''], seq: dict): ...
 
-    def coord(self, key_or_num: Union[int, str]) -> Tuple[Tuple[int, str], Any]:
-        """返回数据中指定列的坐标
+    def col(self, key_or_num: Union[int, str], as_num: bool = True) -> Union[int, str]:
+        """返回数据中指定列的列号或列序号
         :param key_or_num: 为int时表示列序号，为str时表示表头值
-        :return: 返回(行号, 列号)
+        :param as_num: 列以列号还是列序号形式返回
+        :return: 返回列（'A'或1）
         """
         ...
 
+    def coord(self, key_or_num: Union[int, str], col_num: bool = False) -> Tuple[int, Union[str, int]]:
+        """返回数据中指定列的坐标
+        :param key_or_num: 为int时表示列序号，为str时表示表头值
+        :param col_num: 列以列号还是列序号形式返回
+        :return: 返回(行号, 列号)
+        """
+        ...
 
 
 class RowText(str):

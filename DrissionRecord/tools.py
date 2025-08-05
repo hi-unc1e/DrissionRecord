@@ -519,13 +519,13 @@ class Header(BaseHeader):
             res = self[header_or_num]
             return ZeroHeader()[res] if res else None
 
-    def get_num(self, col):
-        if isinstance(col, int) and col > 0:
-            return col
-        elif isinstance(col, str):
-            return self.key_num.get(col, None)
+    def get_num(self, header_or_num):
+        if isinstance(header_or_num, int) and header_or_num > 0:
+            return header_or_num
+        elif isinstance(header_or_num, str):
+            return self.key_num.get(header_or_num, None)
         else:
-            raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
+            raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{header_or_num}')
 
     def __getitem__(self, item):
         if isinstance(item, str):
@@ -601,8 +601,11 @@ class RowData(dict):
             raise RuntimeError(f'header中无{item}项。\nheader：{self.header.values()}')
         return self.get(ite, self._None_val)
 
-    def coord(self, key_or_num):
-        return self.row, self.header.get_col(key_or_num)
+    def col(self, key_or_num, as_num=True):
+        return self.header.get_num(key_or_num) if as_num else self.header.get_col(key_or_num)
+
+    def coord(self, key_or_num, col_num=False):
+        return self.row, self.col(key_or_num, col_num)
 
 
 class RowText(str):
