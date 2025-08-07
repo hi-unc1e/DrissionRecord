@@ -87,8 +87,9 @@ class OriginalRecorder(object):
                             f.write(str(self.data) + '\n')
                         print('保存失败的数据已保存到failed_data.txt。')
                     except:
-                        raise e
-                    raise
+                        print('未保存数据：', self.data)
+                        return
+                    return
 
                 finally:
                     self._pause_write = False
