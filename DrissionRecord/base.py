@@ -136,6 +136,12 @@ class OriginalRecorder(object):
         self._backup_times = 0
         return str(path.absolute())
 
+    def delete(self):
+        if self._path:
+            with self._lock:
+                Path(self._path).unlink(missing_ok=True)
+                self._file_exists = False
+
     @abstractmethod
     def add_data(self, data):
         pass

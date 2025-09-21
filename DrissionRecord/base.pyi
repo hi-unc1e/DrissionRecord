@@ -82,6 +82,10 @@ class OriginalRecorder(object):
         """
         ...
 
+    def delete(self) -> None:
+        """删除所指向的文件"""
+        ...
+
     @abstractmethod
     def add_data(self, data):
         ...
