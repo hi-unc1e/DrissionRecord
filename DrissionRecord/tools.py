@@ -104,7 +104,7 @@ def styles2ws(**kwargs):
     data = kwargs['data']
     styles = data['styles']
     coord = (data['real_coord'] if data['real_coord'] is not None
-             else get_real_coord(data['coord'], ws.max_row, ws.max_column))
+             else get_real_coord(data['coord'], ws.max_row, ws.max_column, header))
     if isinstance(coord, int) and coord < 1:
         coord = get_real_row(coord, ws.max_row)
     none_style = NoneStyle()
@@ -179,8 +179,8 @@ def styles2ws(**kwargs):
                 elif not begin.isalpha() and not end.isalpha():  # 'A1:C3'形式
                     max_row = ws.max_row
                     max_col = ws.max_column
-                    row1, col1 = get_real_coord(parse_coord(begin), max_row, max_col)
-                    row2, col2 = get_real_coord(parse_coord(end), max_row, max_col)
+                    row1, col1 = get_real_coord(parse_coord(begin), max_row, max_col, header)
+                    row2, col2 = get_real_coord(parse_coord(end), max_row, max_col, header)
                     if row1 > row2:
                         row1, row2 = row2, row1
                     if col1 > col2:
@@ -714,30 +714,7 @@ def parse_coord(coord, data_col=1):
 
     elif isinstance(coord, str):
         coord = coord.replace(' ', '')
-        if ',' in coord:  # '3,1'形式
-            x, y = coord.split(',', 1)
-            if x.lower() in ('0', '', 'new'):
-                x = 0
-            elif x.isdigit() or (x[0] == '-' and x[1:].isdigit()):
-                x = int(x)
-            else:
-                raise ValueError('行格式不正确。')
-
-            if y.lower() in ('0', '', 'new'):
-                y = 0
-            elif y.isdigit() or (y[0] == '-' and y[1:].isdigit()):
-                y = int(y)
-            elif y.isalpha():
-                y = ZeroHeader()[y] or 1
-            else:
-                raise TypeError('列格式不正确。')
-
-            return_coord = x, y
-
-        elif coord.isalpha():  # 只输入列号，要新建一行
-            return_coord = 0, ZeroHeader()[coord] or 1
-
-        elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
+        if coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
             return_coord = 0, int(coord)
 
         else:  # 'A3' 或 '3A' 形式
@@ -745,7 +722,6 @@ def parse_coord(coord, data_col=1):
             if m:
                 y, x = m.groups()
                 return_coord = int(x), ZeroHeader()[y] or 1
-
             else:
                 m = match(r'^[$]?(-?\d+)[$]?([A-Za-z]{1,3})$', coord)
                 if not m:
@@ -757,7 +733,7 @@ def parse_coord(coord, data_col=1):
         if (isinstance(coord[0], int) or (isinstance(coord[0], str)
                                           and (coord[0].isdigit() or (coord[0][0] == '-' and coord[0][1:].isdigit())))):
             x = int(coord[0])
-        elif coord[0] in (None, 'new'):
+        elif coord[0] is None:
             x = 0
         else:
             raise TypeError('行格式不正确。')
@@ -765,10 +741,10 @@ def parse_coord(coord, data_col=1):
         if (isinstance(coord[1], int) or (isinstance(coord[1], str)
                                           and (coord[1].isdigit() or (coord[1][0] == '-' and coord[1][1:].isdigit())))):
             y = int(coord[1])
-        elif coord[1] in (None, 'new'):
+        elif coord[1] is None:
             y = 0
         elif isinstance(coord[1], str):
-            y = ZeroHeader()[coord[1]] or 1
+            y = coord[1]
         else:
             raise TypeError('列格式不正确。')
 
@@ -809,13 +785,17 @@ def get_real_col(col, max_col):
     return 1 if col < 1 else col
 
 
-def get_real_coord(coord, max_row, max_col):
+def get_real_coord(coord, max_row, max_col, header):
     row, col = coord
+    if isinstance(col, str):
+        col = header.key_num.get(col, 0)
     return get_real_row(row, max_row), get_real_col(col, max_col)
 
 
 def get_ws_real_coord(coord, ws, header):
     row, col = coord
+    if isinstance(col, str):
+        col = header.key_num.get(col, 0)
     if row <= 0:
         row = ws.max_row + row + 1
     if col <= 0:

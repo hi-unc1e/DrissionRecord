@@ -186,14 +186,12 @@ class RecorderSetter(BaseSetter):
         return self
 
     def data_col(self, col):
-        if isinstance(col, int):
-            self._recorder.data_col = col
-        elif isinstance(col, str):
-            self._recorder.data_col = ZeroHeader()[col] or 1
-        elif col is None:
+        if col is None:
             self._recorder.data_col = 0
-        else:
+        elif not isinstance(col, (int, str)):
             raise TypeError('col值只能是int、str或None。')
+        else:
+            self._recorder.data_col = col
         return self
 
     def link_style(self, style=True):

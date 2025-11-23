@@ -87,27 +87,27 @@ class Recorder(BaseRecorder):
 
     def add_data(self, data, coord=None, table=None):
         coord = parse_coord(coord, self.data_col)
-        data, data_len = self._handle_data(data, coord)
+        data, data_num = self._handle_data(data, coord)
         self._add(data, table,
                   True if self._fast and coord[0] else False,
-                  data_len, self._methods['addData'])
+                  data_num, self._methods['addData'])
 
     def _handle_data(self, data, coord):
         if is_sigal_data(data):
             data = {'type': 'data', 'data': [self._make_final_data(self, (data,))], 'coord': coord}
-            data_len = 1
+            data_num = 1
         elif not data:
             data = {'type': 'data', 'data': [self._make_final_data(self, tuple())], 'coord': coord}
-            data_len = 1
+            data_num = 1
         elif is_1D_data(data):
             data = {'type': 'data', 'data': [self._make_final_data(self, data)], 'coord': coord}
-            data_len = 1
+            data_num = 1
         else:  # 二维数组
             data = {'type': 'data', 'coord': coord,
                     'data': [self._make_final_data(self, (d,)) if is_sigal_data(d)
                              else self._make_final_data(self, d) for d in data]}
-            data_len = len(data)
-        return data, data_len
+            data_num = len(data)
+        return data, data_num
 
     def _add(self, data, table, to_slow, num, add_method):
         while self._pause_add:  # 等待其它线程写入结束
@@ -348,7 +348,8 @@ class Recorder(BaseRecorder):
         method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
         for i in self._data[None]:
             data = i['data']
-            row, col = get_real_coord(i['coord'], lines_count, len(header) if self._header_row[None] > 0 else 1)
+            row, col = get_real_coord(i['coord'], lines_count,
+                                      len(header) if self._header_row[None] > 0 else 1, header)
             for r, da in enumerate(data, row):
                 add_rows = r - lines_count
                 if add_rows > 0:  # 若行数不够，填充行数

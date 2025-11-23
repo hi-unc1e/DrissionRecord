@@ -224,7 +224,7 @@ class RecorderSetter(BaseSetter):
 
     def data_col(self, col: Union[str, int]) -> RecorderSetter:
         """设置默认填充数据的列
-        :param col: 列号或列序号，从1开始，负数表示从后往前数，0表示新列（表头长度后一列），不支持输入表头值
+        :param col: 表头名或列序号，列序号从1开始，负数表示从后往前数，0表示新列（表头长度后一列），用Col('A')输入列号
         :return: 设置对象自己
         """
         ...

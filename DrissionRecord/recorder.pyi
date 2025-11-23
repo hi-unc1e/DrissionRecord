@@ -1,9 +1,4 @@
 # -*- coding:utf-8 -*-
-"""
-_header格式：{表名: Header对象}
-表名为None表示默认sheet或csv文件
-未设置header时值为None
-"""
 from csv import writer, reader
 from io import TextIOWrapper
 from pathlib import Path
@@ -68,11 +63,11 @@ class Recorder(BaseRecorder):
 
     def add_data(self,
                  data: Any,
-                 coord: Union[list, Tuple[Union[None, int, str], Union[None, int, str]], str, int] = None,
+                 coord: Union[list, Tuple[Union[None, int], Union[None, int, str]], str, int] = None,
                  table: Union[str, bool] = None) -> None:
         """添加数据，可一次添加多条数据
         :param data: 插入的数据，任意格式，可以为二维数据
-        :param coord: 要添加数据的坐标，可输入行号、列号或行列坐标，当格式不是xlsx或csv时无效，eg.'a3'、1、[3, 1]、'c'、'-3'
+        :param coord: 要添加数据的坐标，非xlsx或csv文件时只有行数据有效，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
         :param table: 要写入的数据表，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
         :return: None
         """
@@ -83,9 +78,9 @@ class Recorder(BaseRecorder):
                  coord: Union[int, str, tuple],
                  content: Any = None,
                  table: Union[str, True, None] = None) -> None:
-        """为单元格设置超链接
+        """为单元格设置超链接，仅xlsx格式时有效
         :param link: 超链接，为None时删除链接
-        :param coord: 单元格坐标
+        :param coord: 单元格坐标，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
         :param content: 单元格内容
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
@@ -98,9 +93,9 @@ class Recorder(BaseRecorder):
                 width: float = None,
                 height: float = None,
                 table: Union[str, True, None] = None) -> None:
-        """向单元格设置图片
+        """向单元格设置图片，仅xlsx格式时有效
         :param img_path: 图片路径
-        :param coord: 单元格坐标
+        :param coord: 单元格坐标，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
         :param width: 图片宽
         :param height: 图片高
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
@@ -113,7 +108,7 @@ class Recorder(BaseRecorder):
                    coord: Union[int, str, tuple, list],
                    replace: bool = True,
                    table: Union[str, True, None] = None) -> None:
-        """为单元格设置样式，可批量设置范围内的单元格
+        """为单元格设置样式，可批量设置范围内的单元格，仅xlsx格式时有效
         :param styles: CellStyle对象，为None则清除单元格样式
         :param coord: 单元格坐标，输入数字可设置整行，输入列号可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
         :param replace: 是否直接覆盖所有已有样式，如为`False`只替换设置的属性
@@ -124,7 +119,7 @@ class Recorder(BaseRecorder):
 
     def add_rows_height(self, height: float, rows: Union[int, str, list, tuple, True],
                         table: Union[str, True, None] = None) -> None:
-        """设置行高，可设置多行
+        """设置行高，可设置多行，仅xlsx格式时有效
         :param height: 行高
         :param rows: 行号，可指定多行（1、'1:4'、[1, 2, 3]），为Ture设置所有行
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
@@ -134,7 +129,7 @@ class Recorder(BaseRecorder):
 
     def add_cols_width(self, width: float, cols: Union[int, str, list, tuple, True],
                        table: Union[str, True, None] = None, is_header: bool = False) -> None:
-        """设置列宽，可设置多列
+        """设置列宽，可设置多列，仅xlsx格式时有效
         :param width: 列宽
         :param cols: 列号，可指定多列（1、'a'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
@@ -208,12 +203,13 @@ class Recorder(BaseRecorder):
         """
         ...
 
-    def _add(self, data: dict, table: Optional[str], to_slow: bool, num: int, add_method: callable) -> None:
+    def _add(self, data: dict, table: Optional[str], to_slow: bool, num: int, add_method: Callable) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param data: 数据，[dict, ...]格式
         :param table: 表格名称，None为活动表格
         :param to_slow: 是否转到slow模式
         :param num: 增加的数据量
+        :param add_method: 添加数据用的方法
         :return: None
         """
         ...
@@ -266,7 +262,7 @@ class Recorder(BaseRecorder):
         """把数据处理成存储格式
         :param data: 要处理的数据
         :param coord: 单元格坐标
-        :return: (处理后的数据, 数据长度)
+        :return: (处理后的数据, 数据数量)
         """
         ...
 

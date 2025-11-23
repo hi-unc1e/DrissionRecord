@@ -333,13 +333,8 @@ def get_long(txt: str) -> int:
 
 def parse_coord(coord: Union[int, str, list, tuple, None],
                 data_col: int = 1) -> Tuple[Optional[int], Optional[int]]:
-    """添加数据，每次添加一行数据，可指定坐标、列号或行号
-    coord只输入数字（行号）时，列号为self.data_col值，如 3；
-    输入列号，或没有行号的坐标时，表示新增一行，列号为此时指定的，如'c'、',3'、(None, 3)、'None,3'；
-    输入 'newline' 时，表示新增一行，列号为self.data_col值；
-    输入行列坐标时，填写到该坐标，如'a3'、'3,1'、(3,1)、[3,1]；
-    输入的行号可以是负数（列号不可以），代表从下往上数，-1是倒数第一行，如'a-3'、(-3, 3)
-    :param coord: 坐标、列号、行号
+    """处理坐标格式
+    :param coord: 'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号
     :param data_col: 列号，用于只传入行号的情况
     :return: 坐标tuple：(行, 列)坐标中的None表示新行或列
     """
@@ -418,12 +413,13 @@ def get_real_col(col: int, max_col: int) -> int:
 
 
 def get_real_coord(coord: tuple,
-                   max_row: int,
-                   max_col: int) -> Tuple[int, int]:
+                   max_row: int, max_col: int,
+                   header: Header) -> Tuple[int, int]:
     """返回真正写入文件的坐标
     :param coord: 已初步格式化的坐标，如(1, 2)、(0, 3)、(-3, -2)
     :param max_row: 文件最大行
     :param max_col: 文件最大列
+    :param header: Header对象
     :return: 真正写入文件的坐标，tuple格式
     """
     ...
