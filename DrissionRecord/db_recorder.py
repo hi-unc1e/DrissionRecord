@@ -5,7 +5,7 @@ from time import sleep
 
 from .base import BaseRecorder
 from .setter import DBSetter
-from .tools import ok_list_db, is_sigal_data, is_1D_data
+from .tools import ok_list_db, is_single_data, is_1D_data
 
 
 class DBRecorder(BaseRecorder):
@@ -141,7 +141,7 @@ class DBRecorder(BaseRecorder):
         self._close_connection()
 
     def _handle_data(self, data):
-        if is_sigal_data(data):
+        if is_single_data(data):
             data = (self._make_final_data(self, (data,)),)
             self._data_count += 1
         elif not data:
@@ -151,7 +151,7 @@ class DBRecorder(BaseRecorder):
             data = [self._make_final_data(self, data)]
             self._data_count += 1
         else:  # 二维数组
-            data = [self._make_final_data(self, (d,)) if is_sigal_data(d)
+            data = [self._make_final_data(self, (d,)) if is_single_data(d)
                     else self._make_final_data(self, d) for d in data]
             self._data_count += len(data)
         return data

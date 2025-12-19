@@ -100,105 +100,101 @@ def styles2new_row(ws, styles, height, row):
 
 def styles2ws(**kwargs):
     ws = kwargs['ws']
-    header = kwargs['header']
+    header: Header = kwargs['header']
     data = kwargs['data']
     styles = data['styles']
-    coord = (data['real_coord'] if data['real_coord'] is not None
-             else get_real_coord(data['coord'], ws.max_row, ws.max_column, header))
-    if isinstance(coord, int) and coord < 1:
-        coord = get_real_row(coord, ws.max_row)
-    none_style = NoneStyle()
+    coord = data['real_coord']  # 'A3'、'A1:C3'、(1, 3)、['A1', 'B2', 'C3']
+    rows = data['rows']  # 3、'1:3'、[1, 2, 3]
+    cols = data['cols']
     mode = data['mode'] == 'replace'
+    if not styles:
+        styles = [NoneStyle()]
+    elif isinstance(styles, CellStyle):
+        styles = [styles]
 
     if isinstance(styles, dict):
-        if isinstance(coord, int):
-            begin, end = coord, coord
-        elif isinstance(coord, str):
-            if ':' not in coord:
-                return
-            begin, end = coord.split(':', 1)
-            if begin.isalpha() or end.isalpha():
-                return
-            try:
-                begin = parse_coord(begin)[0]
-                end = parse_coord(end)[0]
-                if begin > end:
-                    begin, end = end, begin
-            except:
-                return
-        else:
-            begin, end = coord[0], coord[0]
+        for coord, val in styles.items():
+            styles2ws(ws=ws, header=header,
+                      data={'styles': val, 'real_coord': coord, 'rows': None, 'cols': None, 'mode': mode})
+        return
 
-        for i in range(begin, end + 1):
-            for h, s in header.make_num_dict(styles, None)[0].items():
-                if not s:
-                    s = none_style
-                s.to_cell(ws.cell(i, h), replace=mode)
-
-    else:  # list或tuple
-        if isinstance(styles, CellStyle):
-            styles = [styles]
-
-        if isinstance(coord, tuple):
-            row, col = parse_coord(coord)
-            for c, s in enumerate(styles, col):
-                s.to_cell(ws.cell(row, c), replace=mode)
-
-        elif isinstance(coord, int):
+    if rows:
+        if isinstance(rows, int):
             styles_len = len(styles)
-            for col, cell in enumerate(ws[coord]):
+            for col, cell in enumerate(ws[header.get_num(rows)]):
                 styles[col % styles_len].to_cell(cell, replace=mode)
 
-        elif isinstance(coord, str):
+        elif isinstance(rows, str) and ':' in rows:
+            begin, end = rows.split(':', 1)
+            try:
+                begin = header.get_num(int(begin))
+                end = header.get_num(int(end))
+            except ValueError:
+                raise ValueError('行号必须是数字，现在是：', rows)
+            if begin > end:
+                begin, end = end, begin
+            for i in range(begin, end + 1):
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': None, 'rows': i, 'cols': None, 'mode': mode})
+
+        elif isinstance(rows, (tuple, list)):
+            for i in rows:
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': None, 'rows': i, 'cols': None, 'mode': mode})
+
+    if cols:
+        if isinstance(cols, int):  # 列序号
+            styles_len = len(styles)
+            for col, cell in enumerate(ws[header.get_col(cols)]):
+                styles[col % styles_len].to_cell(cell, replace=mode)
+
+        elif isinstance(cols, str):  # 表头值
+            cols = header.get_num(cols)
+            if cols:
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': None, 'rows': None, 'cols': cols, 'mode': mode})
+
+        elif isinstance(cols, tuple) and len(cols) == 2:
+            begin, end = cols
+            begin = header.get_num(begin)
+            end = header.get_num(end)
+            if begin > end:
+                begin, end = end, begin
+            for i in range(begin, end + 1):
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': None, 'rows': None, 'cols': i, 'mode': mode})
+
+        elif isinstance(cols, (tuple, list)):
+            for i in cols:
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': None, 'rows': None, 'cols': i, 'mode': mode})
+
+    if coord:
+        if isinstance(coord, str):
             if ':' in coord:
                 begin, end = coord.split(':', 1)
-                if begin.isalpha() and end.isalpha():  # 'A:C'形式
-                    begin = ZeroHeader()[begin]
-                    end = ZeroHeader()[end]
-                    if not begin or not end:
-                        return
-                    if begin > end:
-                        begin, end = end, begin
-                    styles_len = len(styles)
-                    for i in range(begin, end + 1):
-                        for ind, cell in enumerate(ws[ZeroHeader()[i]]):
-                            styles[ind % styles_len].to_cell(cell, replace=mode)
-
-                elif begin.replace('-', '', 2).isdigit() and end.replace('-', '', 2).isdigit():  # '1:3'形式
-                    max_row = ws.max_row
-                    begin = get_real_row(int(begin), max_row)
-                    end = get_real_row(int(end), max_row)
-                    if begin > end:
-                        begin, end = end, begin
-
-                    styles_len = len(styles)
-                    for r in range(begin, end + 1):
-                        for col, cell in enumerate(ws[r]):
-                            styles[col % styles_len].to_cell(cell, replace=mode)
-
-                elif not begin.isalpha() and not end.isalpha():  # 'A1:C3'形式
-                    max_row = ws.max_row
-                    max_col = ws.max_column
-                    row1, col1 = get_real_coord(parse_coord(begin), max_row, max_col, header)
-                    row2, col2 = get_real_coord(parse_coord(end), max_row, max_col, header)
-                    if row1 > row2:
-                        row1, row2 = row2, row1
-                    if col1 > col2:
-                        col1, col2 = col2, col1
-                    styles_len = len(styles)
-                    for r in range(row1, row2 + 1):
-                        for col, cell in enumerate([ws.cell(r, c) for c in range(col1, col2 + 1)]):
-                            styles[col % styles_len].to_cell(cell, replace=mode)
-
-            elif coord.isalpha():  # 列'A'形式
+                begin = parse_coord(begin)
+                end = parse_coord(end)
+                begin = f'{header.get_col(begin[1])}{begin[0]}'
+                end = f'{header.get_col(end[1])}{end[0]}'
                 styles_len = len(styles)
-                for ind, cell in enumerate(ws[coord]):
-                    styles[ind % styles_len].to_cell(cell, replace=mode)
+                for row in ws[f'{begin}:{end}']:
+                    for col, cell in enumerate(row):
+                        styles[col % styles_len].to_cell(cell, replace=mode)
+            else:
+                coord = parse_coord(coord)
+                coord = f'{header.get_col(coord[1])}{coord[0]}'
+                styles[0].to_cell(ws[coord], replace=mode)
 
-            else:  # 'A1'形式
-                row, col = parse_coord(coord)
-                for ind, s in enumerate(styles, col):
-                    s.to_cell(ws.cell(row, col + ind), replace=mode)
+        elif isinstance(coord, tuple) and len(coord) == 2:
+            coord = parse_coord(coord)
+            coord = f'{header.get_col(coord[1])}{coord[0]}'
+            styles[0].to_cell(ws[coord], replace=mode)
+
+        elif isinstance(coord, (tuple, list)):
+            for i in coord:
+                styles2ws(ws=ws, header=header,
+                          data={'styles': styles, 'real_coord': i, 'rows': None, 'cols': None, 'mode': mode})
 
 
 def link2ws(**kwargs):
@@ -237,75 +233,89 @@ def img2ws(**kwargs):
 
 
 def width2ws(**kwargs):
-    cols, width = kwargs['data']['cols'], kwargs['data']['width']
+    # 用int表示列序号，str表示表头值，用tuple设置某列到某列，用list指定每一列，为Ture设置所有列
+    cols = kwargs['data']['cols']
+    width = kwargs['data']['width']
     ws = kwargs['ws']
-    header = kwargs['header'] if kwargs['data']['header'] else None
-    if isinstance(cols, int):
-        if not cols:
-            cols = get_real_col(cols, ws.max_column)
-        cols = ZeroHeader()[cols]
+    header: Header = kwargs['header']
+
+    if isinstance(width, dict):
+        for col, val in width.items():
+            width2ws(ws=ws, header=header, data={'cols': col, 'width': val})
+
+    elif isinstance(cols, (int, str)):  # 表头值或列序号
+        cols = header.get_col(cols)
         if cols:
             ws.column_dimensions[cols].width = width
 
-    elif isinstance(cols, str):
-        if ':' in cols:
-            beg, end = cols.split(':', 1)
-            beg = int(beg) if beg.isdigit() else (header.get_num(beg) if header else ZeroHeader()[beg])
-            end = int(end) if end.isdigit() else (header.get_num(end) if header else ZeroHeader()[end])
+    elif isinstance(cols, tuple) and len(cols) == 2:  # 连续多列
+        beg, end = cols
+        if not beg:
+            beg = 1
+        if not end:
+            end = -1
+
+        beg = header.get_num(beg)
+        end = header.get_num(end)
+
+        if beg and end:
             if beg > end:
                 beg, end = end, beg
             for c in range(beg, end + 1):
-                c = header.get_col(c)
-                if c:
-                    ws.column_dimensions[c].width = width
-        else:
-            col = header.get_col(header) if header else cols
-            if col:
-                ws.column_dimensions[col].width = width
+                ws.column_dimensions[header.get_col(c)].width = width
 
-    elif isinstance(cols, (list, tuple)):
+    elif isinstance(cols, list):
         for col in cols:
-            if isinstance(col, int):
-                col = ZeroHeader()[col]
-            elif isinstance(col, str):
-                col = header.get_col(col) if header else col
-            if col:
-                ws.column_dimensions[col].width = width
+            width2ws(ws=ws, header=header, data={'cols': col, 'width': width})
 
     elif cols is True:
         for col in range(1, ws.max_column + 1):
-            col = ZeroHeader()[cols]
-            if col:
-                ws.column_dimensions[ZeroHeader()[cols]].width = width
+            ws.column_dimensions[ZeroHeader()[col]].width = width
 
 
 def height2ws(**kwargs):
-    rows, height = kwargs['data']['rows'], kwargs['data']['height']
+    # int表示行号，str为'1:3'格式，dict可指定行独立设置高度，list或tuple指定多行设置同一个高度。True设置所有行
+    rows = kwargs['data']['rows']
+    height = kwargs['data']['height']
     ws = kwargs['ws']
-    if isinstance(rows, int):
-        if not rows:
+
+    if isinstance(height, dict):
+        for row, val in height.items():
+            height2ws(ws=ws, data={'row': row, 'height': val})
+
+    elif isinstance(rows, int):
+        if rows < 1:
             rows = get_real_row(rows, ws.max_row)
         ws.row_dimensions[rows].height = height
-    elif isinstance(rows, str):
-        if ':' in rows:
-            begin, end = rows.split(':', 1)
-            begin = int(begin)
-            end = int(end)
-            if begin > end:
-                begin, end = end, begin
-            for c in range(begin, end + 1):
-                ws.row_dimensions[c].height = height
-        else:
-            ws.row_dimensions[int(rows)].height = height
+
+    elif isinstance(rows, str) and ':' in rows:
+        beg, end = rows.split(':', 1)
+        if beg == '':
+            beg = 1
+        if end == '':
+            end = -1
+        beg = int(beg)
+        end = int(end)
+        if beg < 1 or end < 1:
+            max_row = ws.max_row
+            beg = get_real_row(beg, max_row)
+            end = get_real_row(end, max_row)
+
+        if beg > end:
+            beg, end = end, beg
+        for c in range(beg, end + 1):
+            ws.row_dimensions[c].height = height
+
     elif isinstance(rows, (list, tuple)):
         for row in rows:
-            ws.row_dimensions[int(row)].height = height
+            height2ws(ws=ws, data={'rows': row, 'height': height})
+
     elif rows is True:
         for i in range(1, ws.max_row + 1):
             ws.row_dimensions[i].height = height
 
 
-def is_sigal_data(data):
+def is_single_data(data):
     return not isinstance(data, Iterable) or isinstance(data, str)
 
 
@@ -313,7 +323,7 @@ def is_1D_data(data):
     if isinstance(data, dict):
         return True
     for i in data:
-        return is_sigal_data(i)
+        return is_single_data(i)
 
 
 def remove_end_Nones(in_list):
@@ -443,7 +453,7 @@ class Header(BaseHeader):
         data = {self.get_key(col): val for col, val in row_values.items()}
         return RowData(row, self, None_val, data)
 
-    def make_insert_list(self, data, file_type, rewrite):
+    def make_insert_list(self, data, file_type, rewrite):  # 修改时记得ZeroHeader对应方法
         if isinstance(data, dict):
             data = self.make_num_dict(data, file_type)[0]
             data = [data.get(i, None) for i in range(1, max(max(data), len(self.num_key)) + 1)] if data else []
@@ -513,27 +523,36 @@ class Header(BaseHeader):
         return num if key is None else key
 
     def get_col(self, header_or_num):
-        if isinstance(header_or_num, int):
-            return ZeroHeader()[header_or_num]
-        else:
-            res = self[header_or_num]
-            return ZeroHeader()[res] if res else None
+        num = self.get_num(header_or_num)
+        return ZeroHeader()[num] if num else None
 
-    def get_num(self, header_or_num):
-        if isinstance(header_or_num, int) and header_or_num > 0:
-            return header_or_num
+    def get_num(self, header_or_num):  # 修改时记得ZeroHeader
+        if isinstance(header_or_num, int):
+            return self._num2num(header_or_num)
         elif isinstance(header_or_num, str):
             return self.key_num.get(header_or_num, None)
         else:
-            raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{header_or_num}')
+            raise TypeError(f'col值只能是int或str。当前值：{header_or_num}')
+
+    def _get_num(self, header_or_num):
+        return self.get_num(header_or_num) or len(self) + 1
+
+    def _num2num(self, num):
+        if num > 0:
+            return num
+        elif num < 0:
+            l = len(self)
+            return num % l + 1 if -num <= l else None
+        else:
+            return len(self) + 1
 
     def __getitem__(self, item):
         if isinstance(item, str):
             return self.key_num.get(item)
-        elif isinstance(item, int) and item > 0:
-            return self.num_key.get(item, None)
+        elif isinstance(item, int) and item != 0:
+            return self.num_key.get(self._num2num(item), None)
         else:
-            raise ValueError('列序号不能小于1。')
+            raise ValueError('值只能时str或int，且不能为0。')
 
     def __len__(self):
         return len(self.num_key)
@@ -563,12 +582,14 @@ class ZeroHeader(Header):
         elif isinstance(col, str):
             return self.key_num.get(col.upper(), None)
         else:
-            raise TypeError(f'col值只能是int或str，且必须大于0。当前值：{col}')
+            raise TypeError(f'表头行为0时，col值只能str或大于0的int。当前值：{col}')
 
     def make_insert_list(self, data, file_type, rewrite):
         if isinstance(data, dict):
             val = self.make_num_dict(data, file_type)[0]
             data = [val.get(c, None) for c in range(1, max(val) + 1)] if val else []
+        else:
+            data = [self._CONTENT_FUNCS[file_type](v) for v in data]
         return data, False
 
     def make_insert_list_rewrite(self, data, file_type, rewrite):
@@ -580,6 +601,17 @@ class ZeroHeader(Header):
 
     def get_col(self, header_or_num):
         return self[header_or_num] if isinstance(header_or_num, int) else header_or_num
+
+    def _num2num(self, num):
+        if num > 0:
+            return num if num <= len(self) else None
+        elif num < 0:
+            return num % len(self) + 1 if -num <= len(self) else None
+        else:
+            raise ValueError('列序号不能为0。')
+
+    def _get_num(self, header_or_num):
+        return self.get_num(header_or_num) or 1
 
     def __getitem__(self, item):
         return self.num_key.get(item, None) if isinstance(item, int) else self.key_num.get(item.upper(), None)
@@ -712,39 +744,25 @@ def parse_coord(coord, data_col=1):
     elif isinstance(coord, int):
         return_coord = coord, data_col
 
-    elif isinstance(coord, str):
-        coord = coord.replace(' ', '')
-        if coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
-            return_coord = 0, int(coord)
-
-        else:  # 'A3' 或 '3A' 形式
-            m = match(r'^[$]?([A-Za-z]{1,3})[$]?(-?\d+)$', coord)
-            if m:
-                y, x = m.groups()
-                return_coord = int(x), ZeroHeader()[y] or 1
-            else:
-                m = match(r'^[$]?(-?\d+)[$]?([A-Za-z]{1,3})$', coord)
-                if not m:
-                    raise ValueError(f'{coord} 坐标格式不正确。')
-                x, y = m.groups()
-                return_coord = int(x), ZeroHeader()[y] or 1
+    elif isinstance(coord, str):  # 'A3'格式
+        m = match(r'^[$]?([A-Za-z]{1,3})[$]?(-?\d+)$', coord)
+        if not m:
+            raise ValueError(f'{coord} 坐标格式不正确。')
+        y, x = m.groups()
+        return_coord = int(x), ZeroHeader()[y] or 1
 
     elif isinstance(coord, (tuple, list)) and len(coord) == 2:
-        if (isinstance(coord[0], int) or (isinstance(coord[0], str)
-                                          and (coord[0].isdigit() or (coord[0][0] == '-' and coord[0][1:].isdigit())))):
+        if isinstance(coord[0], int):
             x = int(coord[0])
         elif coord[0] is None:
             x = 0
         else:
             raise TypeError('行格式不正确。')
 
-        if (isinstance(coord[1], int) or (isinstance(coord[1], str)
-                                          and (coord[1].isdigit() or (coord[1][0] == '-' and coord[1][1:].isdigit())))):
-            y = int(coord[1])
+        if isinstance(coord[1], (str, int)):
+            y = coord[1]
         elif coord[1] is None:
             y = 0
-        elif isinstance(coord[1], str):
-            y = coord[1]
         else:
             raise TypeError('列格式不正确。')
 
@@ -752,6 +770,7 @@ def parse_coord(coord, data_col=1):
 
     else:
         raise ValueError(f'{coord} 坐标格式不正确。')
+
     return return_coord
 
 
@@ -779,28 +798,16 @@ def get_real_row(row, max_row):
     return 1 if row < 1 else row
 
 
-def get_real_col(col, max_col):
-    if col <= 0:
-        col = max_col + col + 1
-    return 1 if col < 1 else col
-
-
-def get_real_coord(coord, max_row, max_col, header):
+def get_real_coord(coord, max_row, header):
     row, col = coord
-    if isinstance(col, str):
-        col = header.key_num.get(col, 0)
-    return get_real_row(row, max_row), get_real_col(col, max_col)
+    return get_real_row(row, max_row), header._get_num(col)
 
 
 def get_ws_real_coord(coord, ws, header):
     row, col = coord
-    if isinstance(col, str):
-        col = header.key_num.get(col, 0)
     if row <= 0:
         row = ws.max_row + row + 1
-    if col <= 0:
-        col = len(header) + col + 1
-    return 1 if row < 1 else row, 1 if col < 1 else col
+    return 1 if row < 1 else row, header._get_num(col)
 
 
 def make_final_data_simplify(recorder, data):

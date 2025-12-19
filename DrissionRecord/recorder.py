@@ -9,9 +9,8 @@ from openpyxl.reader.excel import load_workbook
 from .base import BaseRecorder
 from .setter import RecorderSetter, set_csv_header
 from .tools import (ok_list_str, process_content_json, get_key_cols, img2ws, link2ws, height2ws, width2ws,
-                    get_csv, parse_coord, do_nothing, Header, get_wb, get_ws,
-                    get_real_coord, is_sigal_data, is_1D_data, get_real_col, data2ws, styles2ws, get_real_row,
-                    get_ws_real_coord, RowData, RowText)
+                    get_csv, parse_coord, do_nothing, Header, get_wb, get_ws, is_single_data,
+                    is_1D_data, data2ws, styles2ws, get_real_row, get_ws_real_coord, RowData, RowText)
 
 
 class Recorder(BaseRecorder):
@@ -93,7 +92,7 @@ class Recorder(BaseRecorder):
                   data_num, self._methods['addData'])
 
     def _handle_data(self, data, coord):
-        if is_sigal_data(data):
+        if is_single_data(data):
             data = {'type': 'data', 'data': [self._make_final_data(self, (data,))], 'coord': coord}
             data_num = 1
         elif not data:
@@ -104,7 +103,7 @@ class Recorder(BaseRecorder):
             data_num = 1
         else:  # 二维数组
             data = {'type': 'data', 'coord': coord,
-                    'data': [self._make_final_data(self, (d,)) if is_sigal_data(d)
+                    'data': [self._make_final_data(self, (d,)) if is_single_data(d)
                              else self._make_final_data(self, d) for d in data]}
             data_num = len(data)
         return data, data_num
@@ -152,26 +151,16 @@ class Recorder(BaseRecorder):
         self._add({'type': 'img', 'imgPath': img_path, 'width': width, 'height': height,
                    'coord': parse_coord(coord, self.data_col)}, table, self._fast, 1, self._add_others)
 
-    def _add_styles(self, coord, styles, replace=True, table=None):
-        if isinstance(coord, str):
-            if ':' in coord or coord.isalpha():
-                real, coord = coord, (1, 1)
-            elif coord.isdigit() or (coord[0] == '-' and coord[1:].isdigit()):
-                real, coord = int(coord), (1, 1)
-            else:
-                real, coord = None, parse_coord(coord, self.data_col)
-        elif isinstance(coord, int):
-            real, coord = coord, (1, 1)
-        else:
-            real, coord = None, parse_coord(coord, self.data_col)
-        self._add({'type': 'style', 'mode': 'replace' if replace else 'cover', 'real_coord': real,
-                   'styles': styles, 'coord': coord}, table, self._fast, 1, self._add_others)
+    def _add_styles(self, styles, coord, rows, cols, replace=True, table=None):
+        self._add({'type': 'style', 'mode': 'replace' if replace else 'cover',
+                   'styles': styles, 'coord': (1, 1), 'real_coord': coord, 'rows': rows, 'cols': cols},
+                  table, self._fast, 1, self._add_others)
 
     def _add_rows_height(self, rows, height, table=None):
         self._add({'type': 'height', 'rows': rows, 'height': height}, table, self._fast, 1, self._add_others)
 
-    def _add_cols_width(self, cols, width, table=None, is_header=False):
-        self._add({'type': 'width', 'cols': cols, 'width': width, 'header': is_header}, table, self._fast, 1,
+    def _add_cols_width(self, cols, width, table=None):
+        self._add({'type': 'width', 'cols': cols, 'width': width}, table, self._fast, 1,
                   self._add_others)
 
     def add_link(self, link, coord, content=None, table=None):
@@ -180,14 +169,14 @@ class Recorder(BaseRecorder):
     def add_img(self, img_path, coord, width=None, height=None, table=None):
         self._methods['addImg'](coord, img_path, width, height, table)
 
-    def add_styles(self, styles, coord, replace=True, table=None):
-        self._methods['addStyle'](coord, styles, replace, table)
+    def add_styles(self, styles, coord=None, rows=None, cols=None, replace=True, table=None):
+        self._methods['addStyle'](styles, coord, rows, cols, replace, table)
 
-    def add_rows_height(self, height, rows, table=None):
+    def add_rows_height(self, height, rows=True, table=None):
         self._methods['addHeight'](rows, height, table)
 
-    def add_cols_width(self, width, cols, table=None, is_header=False):
-        self._methods['addWidth'](cols, width, table, is_header)
+    def add_cols_width(self, width, cols=True, table=None):
+        self._methods['addWidth'](cols, width, table)
 
     def rows(self, key_cols=True, sign_col=True,
              signs=None, deny_sign=False, count=None, begin_row=None, end_row=None):
@@ -283,13 +272,13 @@ class Recorder(BaseRecorder):
 
             header = self._header[ws.title]
             rewrite = False
-            if not begin_row and not data[0]['coord'][0]:
+            if not begin_row and not data[0]['coord'][0]:  # 首行为空，将数据填入首行
                 cur = data[0]
                 rewrite = self._methods[cur['type']](
                     **{'recorder': self,
                        'ws': ws,
                        'data': cur,
-                       'coord': (1, get_real_col(cur.get('coord', (1, 1))[1], len(header))),
+                       'coord': (1, header._get_num(cur.get('coord', (1, 1))[1])),
                        'new_row': not cur.get('coord', (1, 1))[0],
                        'header': header,
                        'rewrite': rewrite,
@@ -323,8 +312,7 @@ class Recorder(BaseRecorder):
         rewrite = False
         header = self._header[None]
         for d in self._data[None]:
-            col = 1 if d['coord'][1] == 1 else get_real_col(d['coord'][1],
-                                                            len(header) if self._header_row[None] > 0 else 1)
+            col = header._get_num(d['coord'][1])
             for data in d['data']:
                 data, rewrite = header.__getattribute__(rewrite_method)(data, 'csv', rewrite)
                 data = [None] * (col - 1) + data
@@ -348,8 +336,8 @@ class Recorder(BaseRecorder):
         method = 'make_change_list_rewrite' if self._auto_new_header else 'make_change_list'
         for i in self._data[None]:
             data = i['data']
-            row, col = get_real_coord(i['coord'], lines_count,
-                                      len(header) if self._header_row[None] > 0 else 1, header)
+            row = get_real_row(i['coord'][0], lines_count)
+            col = header._get_num(i['coord'][1])
             for r, da in enumerate(data, row):
                 add_rows = r - lines_count
                 if add_rows > 0:  # 若行数不够，填充行数

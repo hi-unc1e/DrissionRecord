@@ -233,29 +233,50 @@ class Header(BaseHeader):
         ...
 
     def get_key(self, num: int) -> Union[str, int]:
-        """返回指定列序号对应的表头值，如改列没有值，返回列序号
+        """返回指定列序号对应的表头值，如该列没有值，返回列序号
         :param num: 列序号
         :return: 表头值或列序号
         """
         ...
 
-    def get_col(self, header_or_num) -> str:
-        """返回指定列序号或表头值对应的列号
+    def get_col(self, header_or_num) -> Optional[str]:
+        """返回指定列序号或表头值对应的列号，无指定表头值时返回None
         :param header_or_num: 表头值或列序号
-        :return: 列号（'a'）
+        :return: 列号'A'
         """
         ...
 
     def get_num(self, header_or_num: Union[int, str]) -> Optional[int]:
-        """返回指定列序号或表头值对应的列序号
+        """返回指定列序号或表头值对应的列序号，找不到表头值时返回None
         :param header_or_num: 列号、表头值
         :return: 列号int
+        """
+        ...
+
+    def _get_num(self, header_or_num: Union[int, str]) -> int:
+        """内部使用，返回指定列序号或表头值对应的列序号，找不到表头值时返回表头长度加1
+        :param header_or_num: 列号、表头值
+        :return: 列号int
+        """
+        ...
+
+    def _num2num(self, num: int) -> int:
+        """处理负数列序号，返回真实列序号，超出范围返回None，为0返回新列
+        :param num: 列序号
+        :return: 真实列号
         """
         ...
 
 
 class ZeroHeader(Header):
     _OBJ: ZeroHeader = ...
+
+    def _get_num(self, header_or_num: Union[int, str]) -> int:
+        """返回指定列序号或表头值对应的列序号，找不到表头值时返回1
+        :param header_or_num: 列号、表头值
+        :return: 列号int
+        """
+        ...
 
 
 class RowData(dict):
@@ -403,22 +424,11 @@ def get_real_row(row: int, max_row: int) -> int:
     ...
 
 
-def get_real_col(col: int, max_col: int) -> int:
-    """获取返回真正写入文件的列序号
-    :param col: 输入的列序号
-    :param max_col: 最大列号
-    :return: 真正的列序号
-    """
-    ...
-
-
-def get_real_coord(coord: tuple,
-                   max_row: int, max_col: int,
+def get_real_coord(coord: tuple, max_row: int,
                    header: Header) -> Tuple[int, int]:
     """返回真正写入文件的坐标
     :param coord: 已初步格式化的坐标，如(1, 2)、(0, 3)、(-3, -2)
     :param max_row: 文件最大行
-    :param max_col: 文件最大列
     :param header: Header对象
     :return: 真正写入文件的坐标，tuple格式
     """
@@ -503,7 +513,7 @@ def get_key_cols(cols: Union[str, int, list, tuple, bool], header: Header) -> Li
     ...
 
 
-def is_sigal_data(data: Any) -> bool:
+def is_single_data(data: Any) -> bool:
     """判断数据是否独立数据"""
     ...
 

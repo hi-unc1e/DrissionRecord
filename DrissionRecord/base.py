@@ -82,6 +82,8 @@ class OriginalRecorder(object):
                         print('\r文件被打开，保存失败，请关闭，程序会自动重试。', end='')
 
                 except Exception as e:
+                    from traceback import print_exc
+                    print_exc()
                     try:
                         with open('failed_data.txt', 'a+', encoding='utf-8') as f:
                             f.write(str(self.data) + '\n')
