@@ -178,7 +178,7 @@ class Recorder(BaseRecorder):
     def add_cols_width(self, width, cols=True, table=None):
         self._methods['addWidth'](cols, width, table)
 
-    def rows(self, key_cols=True, sign_col=True,
+    def rows(self, cols=True, sign_col=True,
              signs=None, deny_sign=False, count=None, begin_row=None, end_row=None):
         if not self._path or not Path(self._path).exists():
             raise RuntimeError('未指定文件路径或文件不存在。')
@@ -220,13 +220,13 @@ class Recorder(BaseRecorder):
         if self.type in ('csv', 'xlsx'):
             if sign_col is not True:
                 sign_col = header.get_num(sign_col) or 1
-            key_cols = get_key_cols(key_cols, header)
+            cols = get_key_cols(cols, header)
             if not begin_row:
                 begin_row = self._header_row.get(self.table, self._header_row[None]) + 1
         elif not begin_row:
             begin_row = 1
 
-        return method(self, header=header, key_cols=key_cols, begin_row=begin_row, end_row=end_row or 0,
+        return method(self, header=header, key_cols=cols, begin_row=begin_row, end_row=end_row or 0,
                       sign_col=sign_col, sign=signs, deny_sign=deny_sign, count=count, ws=ws)
 
     def _record(self):

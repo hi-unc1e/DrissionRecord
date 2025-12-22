@@ -67,7 +67,7 @@ class Recorder(BaseRecorder):
                  table: Union[str, bool] = None) -> None:
         """添加数据，可一次添加多条数据
         :param data: 插入的数据，任意格式，可以为二维数据
-        :param coord: 要添加数据的坐标，非xlsx或csv文件时只有行数据有效，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
+        :param coord: 要添加数据的坐标，非xlsx或csv文件时只有行数据有效，格式：'A3'、(3, Col('A'))或(3, '表头')格式坐标，行号
         :param table: 要写入的数据表，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
         :return: None
         """
@@ -80,8 +80,8 @@ class Recorder(BaseRecorder):
                  table: Union[str, True, None] = None) -> None:
         """为单元格设置超链接，仅xlsx格式时有效
         :param link: 超链接，为None时删除链接
-        :param coord: 单元格坐标，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
-        :param content: 单元格内容
+        :param coord: 单元格坐标，格式：'A3'、(3, Col('A'))或(3, '表头')格式坐标，行号
+        :param content: 单元格文本
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
         """
@@ -95,7 +95,7 @@ class Recorder(BaseRecorder):
                 table: Union[str, True, None] = None) -> None:
         """向单元格设置图片，仅xlsx格式时有效
         :param img_path: 图片路径
-        :param coord: 单元格坐标，格式：'A3'格式坐标、(3, 1)或(3, '列名')格式坐标、行号，用Col('A')输入列号
+        :param coord: 单元格坐标，格式：'A3'、(3, Col('A'))或(3, '表头')格式坐标，行号
         :param width: 图片宽
         :param height: 图片高
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
@@ -112,10 +112,10 @@ class Recorder(BaseRecorder):
                    table: Union[str, True, None] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格，仅xlsx格式时有效
         :param styles: CellStyle对象，可用列表传入多个；为None则清除单元格样式；可用dict设置指定多个单元格样式，此时coord、rows、cols参数无效
-        :param coord: 单元格坐标，str表示单个单元格'A1'或连续单元格'A1:C5'，tuple为单个单元格坐标
+        :param coord: 单元格坐标，str表示单个单元格'A1'或连续单元格'A1:C5'，tuple为单个单元格坐标(1, '表头')
         :param rows: 整行设置，int表示行号，str为'1:3'格式，可用列表传入多行
-        :param cols: 整列设置，int表示列序号，str表示表头值，长度为2的tuple表示连续多列，可用列表传入多行
-        :param replace: 是否直接覆盖所有已有样式，如为`False`只替换设置的属性
+        :param cols: 整列设置，int表示列序号，str表示表头值，长度为2的tuple传入连续多列的起止列，可用列表传入多列
+        :param replace: 是否直接覆盖所有已有样式，如为False只替换设置的属性
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为Ture表示活动的表格
         :return: None
         """
@@ -182,9 +182,9 @@ class Recorder(BaseRecorder):
                     table: Union[str, bool] = None) -> None:
         """为单元格设置样式，可批量设置范围内的单元格
         :param style: CellStyle对象，为None则清除单元格样式，可用dict设置指定多个单元格样式，此时coord、rows、cols参数无效
-        :param coord: 单元格坐标，输入数字可设置整行，输入列号可设置整列，输入'A1:C5'、'a:d'、'1:5'格式可设置指定范围
+        :param coord: 单元格坐标，str表示单个单元格'A1'或连续单元格'A1:C5'，tuple为单个单元格坐标(1, '表头')
         :param rows: 整行设置，int表示行号，str为"1:3"格式，可用列表传入多行
-        :param cols: 整列设置，int表示列序号，str表示表头值，长度为2的tuple表示连续多列，列表传入多行
+        :param cols: 整列设置，int表示列序号，str表示表头值，长度为2的tuple表示连续多列，列表传入多列
         :param replace: 是否直接替换已有样式，运行效率较高，但不能单独修改某个属性
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为bool表示活动的表格
         :return: None
@@ -204,7 +204,7 @@ class Recorder(BaseRecorder):
     def _add_cols_width(self, cols: Union[int, str, list, tuple, True], width: float,
                         table: Union[str, bool] = None) -> None:
         """设置列宽，可设置多列
-        :param cols: 列号，可指定多列（1、'a'、'序号'、'1:4'、'a:d'、[1, 2, 3]、['a', 'b', 'c']），为Ture设置所有列
+        :param cols: 用int表示列序号，str表示表头值，用Col('A')输入列号，用tuple设置连续起止列，用list指定离散列，为Ture设置所有列
         :param width: 列宽
         :param table: 数据表名，仅支持xlsx格式。为None表示用set.table()方法设置的值，为True表示活动的表格
         :return: None
@@ -247,7 +247,7 @@ class Recorder(BaseRecorder):
         ...
 
     def rows(self,
-             key_cols: Union[str, int, list, tuple, True] = True,
+             cols: Union[str, int, list, tuple, True] = True,
              sign_col: Union[str, int, True] = True,
              signs: Any = None,
              deny_sign: bool = False,
@@ -255,7 +255,7 @@ class Recorder(BaseRecorder):
              begin_row: Optional[int] = None,
              end_row: Optional[int] = None) -> List[Union[RowData, RowText]]:
         """返回符合条件的行数据，可指定只要某些列。txt格式只有count、begin_row、end_row有效
-        :param key_cols: 作为关键字的列，可以是多列，传入表头值或列序号，要用列号用Col('a')，为True获取所有列
+        :param cols: 要获取的列，可以是多列，传入表头值或列序号，要用列号用Col('a')，为True获取所有列
         :param sign_col: 用于筛选数据的列，传入表头值或列序号，要用列号用Col('a')，为True获取所有行
         :param signs: 按这个值筛选目标行，可用list, tuple, set设置多个
         :param deny_sign: 是否反向匹配sign，即筛选值不是sign的行

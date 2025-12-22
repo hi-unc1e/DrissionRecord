@@ -100,7 +100,7 @@ def styles2new_row(ws, styles, height, row):
 
 def styles2ws(**kwargs):
     ws = kwargs['ws']
-    header: Header = kwargs['header']
+    header = kwargs['header']
     data = kwargs['data']
     styles = data['styles']
     coord = data['real_coord']  # 'A3'、'A1:C3'、(1, 3)、['A1', 'B2', 'C3']
@@ -237,7 +237,7 @@ def width2ws(**kwargs):
     cols = kwargs['data']['cols']
     width = kwargs['data']['width']
     ws = kwargs['ws']
-    header: Header = kwargs['header']
+    header = kwargs['header']
 
     if isinstance(width, dict):
         for col, val in width.items():
@@ -281,7 +281,7 @@ def height2ws(**kwargs):
 
     if isinstance(height, dict):
         for row, val in height.items():
-            height2ws(ws=ws, data={'row': row, 'height': val})
+            height2ws(ws=ws, data={'rows': row, 'height': val})
 
     elif isinstance(rows, int):
         if rows < 1:
