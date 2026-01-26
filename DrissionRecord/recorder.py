@@ -369,7 +369,7 @@ class Recorder(BaseRecorder):
             all_data = []
             for data in self._data[None]:
                 for d in data['data']:
-                    all_data.append(d if isinstance(d, str) else dumps(d))
+                    all_data.append(d if isinstance(d, str) else dumps(d, ensure_ascii=False))
             f.write('\n'.join(all_data) + '\n')
 
     def _to_json_fast(self):
@@ -389,7 +389,7 @@ class Recorder(BaseRecorder):
                     json_data.append([process_content_json(d) for d in i])
 
         with open(self.path, 'w', encoding=self.encoding) as f:
-            dump(json_data, f)
+            dump(json_data, f, ensure_ascii=False)
 
     def _to_txt_slow(self):
         if not self._file_exists and not Path(self.path).exists():
@@ -419,7 +419,7 @@ class Recorder(BaseRecorder):
             lines = []
         handle_txt_lines(self._data[None], lines, None, handle_json_data)
         with open(self.path, 'w', encoding=self.encoding) as f:
-            dump(lines, f)
+            dump(lines, f, ensure_ascii=False)
 
 
 def handle_txt_lines(data_lst, lines, val, method):
@@ -440,7 +440,7 @@ def handle_txt_data(lines, num, data):
 
 
 def handle_jsonl_data(lines, num, data):
-    lines[num] = data if isinstance(data, str) else dumps(data) + '\n'
+    lines[num] = data if isinstance(data, str) else dumps(data, ensure_ascii=False) + '\n'
 
 
 def handle_json_data(lines, num, data):
