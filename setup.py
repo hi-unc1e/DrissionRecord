@@ -21,6 +21,13 @@ setup(
     install_requires=[
         "openpyxl",
     ],
+    extras_require={
+        "test": [
+            "pytest>=6.0",
+            "pytest-cov>=2.10",
+            "Pillow>=8.0",
+        ],
+    },
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Development Status :: 4 - Beta",
